@@ -231,7 +231,18 @@ function loadSource() {
         return;
       }
       toast("Abriendo Google…");
-      Cloud.signIn().then(() => { paint(); }).catch(() => toast("No se pudo iniciar sesión. Revisá tu conexión o la config de Firebase."));
+      Cloud.signIn().then(() => { paint(); }).catch((e) => {
+        if (e && (e.code === "auth/popup-closed-by-user" || e.code === "auth/cancelled-popup-request")) return;
+        const code = e && e.code ? e.code : "";
+        if (code === "auth/unauthorized-domain") {
+          toast("Dominio sin autorizar: en Firebase → Authentication → Configuración → Dominios autorizados, agregá oriannaf.github.io");
+        } else if (code === "auth/configuration-not-found" || code === "auth/operation-not-allowed") {
+          toast("Google no está habilitado: en Firebase → Authentication → Sign-in method, habilitá el proveedor Google");
+        } else {
+          toast("No se pudo iniciar sesión" + (code ? " (" + code + ")" : "") + ". Revisá tu conexión.");
+        }
+        if (e) console.error("Cloud sign-in error:", e);
+      });
     });
     if (Cloud) Cloud.onChange(paint);
     paint();

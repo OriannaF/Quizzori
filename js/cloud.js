@@ -161,7 +161,12 @@
           else if (!u && user) stopSession();
         });
         const provider = new fb.auth.GoogleAuthProvider();
-        return fb.auth().signInWithPopup(provider);
+        return fb.auth().signInWithPopup(provider).catch((err) => {
+          if (err && (err.code === "auth/popup-blocked" || err.code === "auth/cancelled-popup-request")) {
+            return fb.auth().signInWithRedirect(provider);
+          }
+          throw err;
+        });
       }).then((cred) => {
         if (cred && cred.user) startSession({ uid: cred.user.uid, name: cred.user.displayName || "" });
       });
