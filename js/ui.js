@@ -215,6 +215,7 @@ function loadSource() {
     const Cloud = window.Cloud;
     const ic = document.getElementById("cloud-ic");
     const label = document.getElementById("cloud-label");
+    if (Cloud && Cloud.isConfigured()) Cloud.init();
     const paint = () => {
       const u = Cloud && Cloud.user();
       if (ic) ic.textContent = u ? "cloud_done" : "account_circle";
