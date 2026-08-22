@@ -25,12 +25,12 @@
   const Cloud = (() => {
     const SDK_BASE = "https://www.gstatic.com/firebasejs/10.12.2";
     const FIREBASE_CONFIG = {
-      apiKey: "PONÉ_TU_API_KEY",
-      authDomain: "TU-PROYECTO.firebaseapp.com",
-      projectId: "TU-PROYECTO",
-      storageBucket: "TU-PROYECTO.appspot.com",
-      messagingSenderId: "000000000000",
-      appId: "1:000000000000:web:xxxxxxxxxxxxxxxx"
+      apiKey: "AIzaSyBkV7vABdSnCwzSl7ApIgjsYL5BMf9ToO",
+      authDomain: "quizzori.firebaseapp.com",
+      projectId: "quizzori",
+      storageBucket: "quizzori.firebasestorage.app",
+      messagingSenderId: "116920483833",
+      appId: "1:116920483833:web:d56145d2d7d3ae9135c728"
     };
 
     const isConfigured = () =>
