@@ -25,7 +25,7 @@
   const Cloud = (() => {
     const SDK_BASE = "https://www.gstatic.com/firebasejs/10.12.2";
     const FIREBASE_CONFIG = {
-      apiKey: "AIzaSyBkV7vABdSnCwzSl7ApIgjsYL5BMf9ToO",
+      apiKey: "AIzaSyBkV7vABdSnCwzSl7ApIgjsYL5BMf9ToO0",
       authDomain: "quizzori.firebaseapp.com",
       projectId: "quizzori",
       storageBucket: "quizzori.firebasestorage.app",
