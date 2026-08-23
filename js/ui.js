@@ -228,19 +228,30 @@
   }
 
   function initCloudUI() {
-    const btn = document.getElementById("cloud-btn");
-    if (!btn) return;
     const Cloud = window.Cloud;
+    const sideBtn = document.getElementById("cloud-btn");
+    const topBtn = document.getElementById("acct-btn");
+    const btns = [sideBtn, topBtn].filter(Boolean);
+    if (!btns.length) return;
     const ic = document.getElementById("cloud-ic");
     const label = document.getElementById("cloud-label");
+    const aic = document.getElementById("acct-ic");
+    const aname = document.getElementById("acct-name");
     if (Cloud && Cloud.isConfigured()) Cloud.init();
     const paint = () => {
       const u = Cloud && Cloud.user();
+      const full = u ? (u.name || "Cuenta") : "";
+      const shortName = full.trim().split(/\s+/)[0] || "Cuenta";
       if (ic) ic.textContent = u ? "cloud_done" : "account_circle";
-      if (label) label.textContent = u ? (u.name || "Cuenta") : "Entrar";
-      btn.title = u ? "Sincronizado · clic para cerrar sesión" : "Iniciar sesión y sincronizar progreso";
+      if (label) label.textContent = u ? full : "Entrar";
+      if (aic) aic.textContent = u ? "cloud_done" : "account_circle";
+      if (aname) aname.textContent = u ? shortName : "Entrar";
+      btns.forEach((b) => {
+        b.title = !u ? "Iniciar sesión con Google y sincronizar progreso"
+          : full + " · clic para cerrar sesión";
+      });
     };
-    btn.addEventListener("click", () => {
+    btns.forEach((btn) => btn.addEventListener("click", () => {
       if (!Cloud || !Cloud.isConfigured()) {
         toast("Sync sin configurar: creá un proyecto gratis en Firebase y pegá las claves en js/cloud.js");
         return;
@@ -262,7 +273,7 @@
         }
         if (e) console.error("Cloud sign-in error:", e);
       });
-    });
+    }));
     if (Cloud) Cloud.onChange(paint);
     paint();
   }

@@ -257,6 +257,21 @@ html.light .glow-c { background: rgba(166, 62, 193, 0.07); }
   gap: 12px;
 }
 .topbar-actions { display: flex; align-items: center; gap: 14px; }
+.acct-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  max-width: 170px;
+  padding: 8px 15px 8px 11px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: inherit; font-size: 13.5px; font-weight: 700;
+  cursor: pointer; white-space: nowrap;
+  transition: var(--tr);
+}
+.acct-chip:hover { border-color: var(--accent); box-shadow: 0 4px 14px -6px var(--accent-glow); }
+.acct-chip .material-symbols-outlined { font-size: 20px; color: var(--accent-soft); flex: none; }
+.acct-name { overflow: hidden; text-overflow: ellipsis; }
 .top-date { color: var(--faint); }
 
 /* ---- Pomodoro ---- */
@@ -1257,6 +1272,8 @@ th {
   body.quiz-open { padding-bottom: 156px; }
   #toast { left: 50%; top: 72px; }
   @media (max-width: 640px) {
+    .acct-chip { max-width: 120px; padding: 7px 12px 7px 9px; font-size: 12.5px; gap: 5px; }
+    .topbar-actions { gap: 8px; }
     .pomo-dots { display: none; }
     .pomo-panel { position: fixed; top: 64px; right: 12px; left: 12px; width: auto; }
     .switch-track { width: 36px; }
