@@ -1,5 +1,5 @@
 ﻿<!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,62 +14,93 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600;700;800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=10">
+  <link rel="stylesheet" href="css/style.css?v=11">
 </head>
 <body>
-  <header class="topbar">
-    <div class="topbar-inner">
-      <div class="brand">
-        <span class="material-symbols-outlined brand-ic">school</span>
-        <h1>Quizzori</h1>
-        <span id="quiz-name" class="muted small"></span>
-      </div>
-      <button id="cloud-btn" class="cloud-btn" type="button" title="Cuenta y sincronización">
-        <span class="material-symbols-outlined" id="cloud-ic">account_circle</span>
-        <span id="cloud-label">Entrar</span>
-      </button>
-      <div class="pomo" id="pomo">
-        <button class="pomo-btn" id="pomo-cfg" type="button" title="Configurar pomodoro">
-          <span class="material-symbols-outlined">timer</span>
-        </button>
-        <span class="pomo-time" id="pomo-time">25:00</span>
-        <span class="pomo-dots" id="pomo-dots" title="Pomodoros completados"></span>
-        <button class="pomo-btn pomo-play" id="pomo-play" type="button" title="Iniciar / Pausar">
-          <span class="material-symbols-outlined">play_arrow</span>
-        </button>
-        <button class="pomo-btn" id="pomo-reset" type="button" title="Reiniciar fase">
-          <span class="material-symbols-outlined">restart_alt</span>
-        </button>
-        <div class="pomo-panel" id="pomo-panel" hidden>
-          <div class="pomo-panel-title">Pomodoro</div>
-          <label>Estudio (min)<input type="number" id="pomo-study" min="1" max="120" value="25"></label>
-          <label>Pausa corta (min)<input type="number" id="pomo-short" min="1" max="60" value="5"></label>
-          <label>Pausa larga (min)<input type="number" id="pomo-long" min="1" max="90" value="15"></label>
-          <div class="muted small">Pausa larga cada 4 estudios.</div>
-        </div>
-      </div>
-      <button id="theme-toggle" class="theme-switch" type="button" aria-label="Cambiar tema">
-        <span class="material-symbols-outlined ic-sun">light_mode</span>
-        <span class="switch-track"><span class="switch-knob"></span></span>
-        <span class="material-symbols-outlined ic-moon">dark_mode</span>
+  <div class="bg-glow" aria-hidden="true">
+    <div class="glow glow-a"></div>
+    <div class="glow glow-b"></div>
+    <div class="glow glow-c"></div>
+  </div>
+
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-badge"><span class="material-symbols-outlined">quiz</span></div>
+      <span class="brand-name">Quizzori</span>
+    </div>
+
+    <nav class="nav" id="main-nav" aria-label="Secciones">
+      <a href="#" class="nav-item active" data-view="inicio">
+        <span class="material-symbols-outlined">home</span><span>Inicio</span>
+      </a>
+      <a href="#" class="nav-item" data-view="cursos">
+        <span class="material-symbols-outlined">auto_stories</span><span>Cursos</span>
+      </a>
+      <a href="#" class="nav-item" data-view="progreso">
+        <span class="material-symbols-outlined">query_stats</span><span>Progreso</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-foot">
+      <button id="cloud-btn" class="cloud-card" type="button" title="Cuenta y sincronización">
+        <span class="material-symbols-outlined cloud-ic" id="cloud-ic">account_circle</span>
+        <span class="cloud-txt">
+          <span id="cloud-label">Entrar</span>
+          <small>Sync en la nube</small>
+        </span>
       </button>
     </div>
-  </header>
+  </aside>
 
-  <main id="app" class="container"></main>
+  <div class="shell">
+    <header class="topbar">
+      <div class="topbar-inner">
+        <span class="top-date mono-label" id="top-date"></span>
+        <div class="topbar-actions">
+          <div class="pomo" id="pomo">
+            <button class="pomo-btn" id="pomo-cfg" type="button" title="Configurar pomodoro">
+              <span class="material-symbols-outlined">timer</span>
+            </button>
+            <span class="pomo-time" id="pomo-time">25:00</span>
+            <span class="pomo-dots" id="pomo-dots" title="Pomodoros completados"></span>
+            <button class="pomo-btn pomo-play" id="pomo-play" type="button" title="Iniciar / Pausar">
+              <span class="material-symbols-outlined">play_arrow</span>
+            </button>
+            <button class="pomo-btn" id="pomo-reset" type="button" title="Reiniciar fase">
+              <span class="material-symbols-outlined">restart_alt</span>
+            </button>
+            <div class="pomo-panel" id="pomo-panel" hidden>
+              <div class="pomo-panel-title">Pomodoro</div>
+              <label>Estudio (min)<input type="number" id="pomo-study" min="1" max="120" value="25"></label>
+              <label>Pausa corta (min)<input type="number" id="pomo-short" min="1" max="60" value="5"></label>
+              <label>Pausa larga (min)<input type="number" id="pomo-long" min="1" max="90" value="15"></label>
+              <div class="muted small">Pausa larga cada 4 estudios.</div>
+            </div>
+          </div>
+          <button id="theme-toggle" class="theme-switch" type="button" aria-label="Cambiar tema">
+            <span class="material-symbols-outlined ic-sun">light_mode</span>
+            <span class="switch-track"><span class="switch-knob"></span></span>
+            <span class="material-symbols-outlined ic-moon">dark_mode</span>
+          </button>
+        </div>
+      </div>
+    </header>
 
-  <footer class="muted small">
-    Progreso y preferencias guardados localmente en tu navegador · un cuestionario por cada CSV en /data
-  </footer>
+    <main id="app" class="app-main"></main>
 
-  <script src="js/storage.js?v=10"></script>
-  <script src="js/csv.js?v=10"></script>
-  <script src="js/scheduler.js?v=10"></script>
-  <script src="js/quiz.js?v=10"></script>
-  <script src="js/cloud.js?v=10"></script>
-  <script src="js/ui.js?v=10"></script>
+    <footer class="app-footer mono-label">
+      Progreso guardado localmente · un cuestionario por cada CSV en /data
+    </footer>
+  </div>
+
+  <script src="js/storage.js?v=11"></script>
+  <script src="js/csv.js?v=11"></script>
+  <script src="js/scheduler.js?v=11"></script>
+  <script src="js/quiz.js?v=11"></script>
+  <script src="js/cloud.js?v=11"></script>
+  <script src="js/ui.js?v=11"></script>
   <script>
     document.addEventListener("DOMContentLoaded", function () {
       window.UI.init();
