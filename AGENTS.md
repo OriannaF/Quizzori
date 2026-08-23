@@ -41,8 +41,8 @@ Datos: `data/*.csv` — un CSV = un cuestionario ("Final ADS" 278 preguntas, "Bo
   (no hay delegación global; `bindExamCard(hash)` solo corre si el elemento existe).
 - El quiz es otra vista más: al salir vuelve a `returnView`.
 - `window.Cloud.user()` devuelve `{uid, name, email}` o `null`. `Cloud.isAdmin()`
-  compara email contra `ADMIN_EMAILS` (en cloud.js). `isOwner()` en ui.js =
-  isAdmin() + fallback por displayName.
+  compara email contra `ADMIN_EMAILS` (en cloud.js). `isOwner()` en ui.js = solo
+  `isAdmin()` (email admin, sin fallback por displayName).
 - Sync automático: toda clave `quiz.*` que NO esté en `EXCLUDE_SYNC` (storage.js)
   viaja a Firestore al tocarla. Cuidado con meter objetos grandes ahí.
 

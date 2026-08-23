@@ -40,6 +40,28 @@
   function pomoSave() {
     try { localStorage.setItem("quiz.pomo", JSON.stringify(pomoCfg)); } catch (e) {}
   }
+  function pomoStateSave() {
+    try {
+      const raw = JSON.parse(localStorage.getItem("quiz.pomo") || "{}");
+      raw.state = { phase: pomo.phase, remaining: pomo.remaining, doneCount: pomo.doneCount };
+      localStorage.setItem("quiz.pomo", JSON.stringify(raw));
+    } catch (e) {}
+  }
+  function pomoStateLoad() {
+    try {
+      const s = JSON.parse(localStorage.getItem("quiz.pomo") || "{}").state || {};
+      if (["study", "short", "long"].indexOf(s.phase) !== -1) {
+        const max = pomoDur(s.phase);
+        const r = parseInt(s.remaining, 10);
+        if (r >= 1 && r <= max) {
+          pomo.phase = s.phase;
+          pomo.remaining = r;
+        }
+      }
+      const d = parseInt(s.doneCount, 10);
+      if (d >= 0 && d < 4) pomo.doneCount = d;
+    } catch (e) {}
+  }
   const pomoDur = (ph) => (pomoCfg[ph === "study" ? "study" : ph] || POMO_DEFAULT[ph]) * 60;
   const pomoLabel = () => ({ study: "Estudio", short: "Pausa", long: "Pausa larga" })[pomo.phase];
 
@@ -114,7 +136,7 @@
 
   function pomoTick() {
     pomo.remaining--;
-    if (pomo.remaining > 0) { pomoRender(); return; }
+    if (pomo.remaining > 0) { pomoRender(); pomoStateSave(); return; }
     clearInterval(pomo.timer);
     pomo.timer = null;
     pomo.running = false;
@@ -124,12 +146,14 @@
     pomoBeep();
     toast(`Pomodoro: ${pomoLabel()} — apretá play cuando estés listo`);
     pomoRender();
+    pomoStateSave();
     document.getElementById("pomo").classList.add("done");
   }
 
   function initPomodoro() {
     pomoLoad();
-    pomo.remaining = pomoDur("study");
+    pomoStateLoad();
+    if (pomo.remaining > pomoDur(pomo.phase)) pomo.remaining = pomoDur(pomo.phase);
     const box = document.getElementById("pomo");
     if (!box) return;
     document.getElementById("pomo-play").addEventListener("click", () => {
@@ -142,6 +166,7 @@
         pomo.timer = null;
       }
       pomoRender();
+      pomoStateSave();
     });
     document.getElementById("pomo-reset").addEventListener("click", () => {
       if (pomo.timer) { clearInterval(pomo.timer); pomo.timer = null; }
@@ -149,6 +174,7 @@
       pomo.remaining = pomoDur(pomo.phase);
       box.classList.remove("done");
       pomoRender();
+      pomoStateSave();
     });
     const panel = document.getElementById("pomo-panel");
     document.getElementById("pomo-cfg").addEventListener("click", (e) => {
@@ -240,15 +266,15 @@
     if (Cloud && Cloud.isConfigured()) Cloud.init();
     const paint = () => {
       const u = Cloud && Cloud.user();
-      const full = u ? (u.name || "Cuenta") : "";
+      const full = u ? (u.name || u.email || "Cuenta") : "";
       const shortName = full.trim().split(/\s+/)[0] || "Cuenta";
-      if (ic) ic.textContent = "person";
+      if (ic) ic.textContent = u ? "logout" : "person";
       if (label) {
-        label.textContent = u ? "Cerrar sesión" : "Entrar";
+        label.textContent = u ? full : "Entrar";
         const sub = label.parentElement && label.parentElement.querySelector("small");
         if (sub) {
-          sub.textContent = u ? "" : "Iniciar sesión";
-          sub.style.display = u ? "none" : "";
+          sub.textContent = u ? "Cerrar sesión" : "Iniciar sesión";
+          sub.style.display = "";
         }
       }
       if (aic) aic.textContent = "person";
@@ -572,14 +598,16 @@
     const pct = st.total ? Math.round(((st.total - st.today) / st.total) * 100) : 0;
     const icon = EXAM_ICONS[i % EXAM_ICONS.length];
     const tone = toneOf(i);
+    const toneCls = tone === "tone-green" ? "tone-green" : tone === "tone-purple" ? "tone-purple" : "tone-blue";
     const hasDraft = Quiz.draftOf(qq.hash);
+    const mat = materiaOf(qq.hash);
     return `
     <div class="exam-card ${tone}">
       <div class="course-side"><span class="material-symbols-outlined">${icon}</span></div>
       <div class="exam-card-body">
-        <div class="chips-row">
-          <span class="eyebrow ${tone ? (tone === "tone-green" ? "tone-green" : "tone-purple") : "tone-blue"}">${esc(st.name)}</span>
-          <span class="eyebrow tone-neutral">Quizz activo</span>
+        <div class="mat-titling">
+          <h3>${esc(st.name)}</h3>
+          <span class="eyebrow ${toneCls}">${mat ? esc(mat.name) : "Sin materia"}</span>
         </div>
         <div class="bar-row">
           <span class="mono-label muted">Avance</span>
@@ -611,7 +639,7 @@
 
 
   function fechasBoxHTML(sfx) {
-    const courses = loadCourses();
+    const courses = loadCourses().filter((c) => Array.isArray(c.quizzes) && c.quizzes.length);
     const exams = Quiz.courseExamsMap();
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const rows = courses
@@ -772,13 +800,13 @@
     return loadCourses().find((c) => c.id === id);
   }
 
+  function materiaOf(hash) {
+    return loadCourses().find((c) => Array.isArray(c.quizzes) && c.quizzes.indexOf(hash) !== -1) || null;
+  }
+
   function isOwner() {
     const C = window.Cloud;
-    if (C && typeof C.isAdmin === "function" && C.isAdmin()) return true;
-    const u = C && typeof C.user === "function" ? C.user() : null;
-    if (!u || !u.name) return false;
-    const n = String(u.name).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-    return n.indexOf("orianna") !== -1;
+    return !!(C && typeof C.isAdmin === "function" && C.isAdmin());
   }
 
   function safeUrl(u) {
@@ -788,18 +816,19 @@
 
   function questionnaireCardHTML(st, i) {
     const tone = toneOf(i);
+    const toneCls = tone === "tone-green" ? "tone-green" : tone === "tone-purple" ? "tone-purple" : "tone-blue";
     const pct = st.total ? Math.round((st.mastered / st.total) * 100) : 0;
-    const started = (st.total - st.newN) > 0;
+    const mat = materiaOf(st.hash);
     return `
       <div class="exam-card ${tone}">
         <div class="course-side"><span class="material-symbols-outlined">${EXAM_ICONS[(i + 1) % EXAM_ICONS.length]}</span></div>
         <div class="exam-card-body">
           <div class="course-top">
-            <div style="min-width:0">
-              <span class="eyebrow ${tone === "tone-green" ? "tone-green" : tone === "tone-purple" ? "tone-purple" : "tone-blue"}">${started ? "En progreso" : "Sin empezar"}</span>
+            <div class="mat-titling">
               <h3>${esc(st.name)}</h3>
+              <span class="eyebrow ${toneCls}">${mat ? esc(mat.name) : "Sin materia"}</span>
             </div>
-            <div class="pct-badge ${tone === "tone-green" ? "tone-green" : ""} ${tone === "tone-purple" ? "tone-purple" : ""}">${pct}%</div>
+            <div class="pct-badge ${toneCls}">${pct}%</div>
           </div>
           <div>
             <div class="progress ${tone === "tone-green" ? "green" : ""} ${tone === "tone-purple" ? "grad" : ""}"><span style="width:${pct}%"></span></div>
@@ -893,17 +922,17 @@
   }
 
   function createCourse() {
-    if (!isOwner()) { toast("Solo la cuenta de Orianna puede crear materias."); return; }
+    if (!isOwner()) { toast("Solo la cuenta admin puede crear materias."); return; }
     const name = (window.prompt("Nombre de la materia:") || "").trim();
     if (!name) return;
     const list = loadCourses();
     list.push({ id: Date.now().toString(36), name, quizzes: [], material: [], links: [] });
     updateCourses(list);
-    toast("Materia creada.");
+    toast("Materia creada. Va a aparecer cuando le asignes su primer cuestionario.");
   }
 
   function renameCourse(id) {
-    if (!isOwner()) { toast("Solo la cuenta de Orianna puede editar materias."); return; }
+    if (!isOwner()) { toast("Solo la cuenta admin puede editar materias."); return; }
     const c = findCourse(id);
     if (!c) return;
     const name = (window.prompt("Nuevo nombre de la materia:", c.name) || "").trim();
@@ -913,7 +942,7 @@
   }
 
   function deleteCourse(id) {
-    if (!isOwner()) { toast("Solo la cuenta de Orianna puede borrar materias."); return; }
+    if (!isOwner()) { toast("Solo la cuenta admin puede borrar materias."); return; }
     const c = findCourse(id);
     if (!c) return;
     if (!window.confirm(`¿Eliminar la materia "${c.name}"? Los quizzes no se borran.`)) return;
@@ -1082,7 +1111,8 @@
   function renderCursos() {
     const qs = S().questionnaires;
     const stats = qs.map((qq) => Quiz.statsFor(qq.hash)).filter(Boolean);
-    const courses = loadCourses();
+    const allCourses = loadCourses();
+    const courses = allCourses.filter((c) => Array.isArray(c.quizzes) && c.quizzes.length);
     const statOf = (hash) => stats.find((s) => s.hash === hash);
     const cardOf = (qq, i) => {
       const st = statOf(qq.hash);
@@ -1096,13 +1126,13 @@
     if (!courses.length) {
       coursesGrid = qs.map(cardOf).join("") || `
         <div class="card center">
-          <h2>Todavía no hay materias</h2>
-          <p class="muted">Creá una con el botón de arriba o subí un CSV abajo.</p>
+          <h2>${allCourses.length ? "Ninguna materia tiene quizzes todavía" : "Todavía no hay materias"}</h2>
+          <p class="muted">${allCourses.length ? "Subí un CSV abajo y asignalo a una materia para verla acá." : "Creá una con el botón de arriba o subí un CSV abajo."}</p>
         </div>`;
       headSub = "";
     } else {
       const assigned = new Set();
-      courses.forEach((cc) => (cc.quizzes || []).forEach((h) => assigned.add(h)));
+      allCourses.forEach((cc) => (cc.quizzes || []).forEach((h) => assigned.add(h)));
       coursesGrid = courses.map(courseCardHTML).join("") || `
         <div class="card center"><h2>Sin materias</h2><p class="muted">Creá una con el botón de arriba.</p></div>`;
       const freeCards = qs.filter((qq) => !assigned.has(qq.hash)).map(cardOf).join("");

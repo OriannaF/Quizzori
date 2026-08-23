@@ -7,7 +7,7 @@ let html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8")
   .replace(/<script src="([^"]+)"><\/script>/g, (m, src) => {
     const code = fs.readFileSync(path.join(ROOT, src.split("?")[0]), "utf8");
     if (src.indexOf("cloud.js") !== -1) {
-      return `<script>${code}\n</script><script>window.Cloud={isConfigured:()=>true,user:()=>({uid:"u1",name:"Orianna Fernandez"}),onChange(){},init(){},signIn(){return Promise.resolve()},signOut(){return Promise.resolve()}};</script>`;
+      return `<script>${code}\n</script><script>window.Cloud={isConfigured:()=>true,user:()=>({uid:"u1",name:"Orianna Fernandez",email:"oriannafernandezdelrosario@gmail.com"}),isAdmin:()=>true,onChange(){},init(){},signIn(){return Promise.resolve()},signOut(){return Promise.resolve()}};</script>`;
     }
     return `<script>${code}\n</script>`;
   })
@@ -59,11 +59,14 @@ const PROMPT = () => promptReply;
 
   click($("#btn-new-course"));
   await new Promise((r) => setTimeout(r, 50));
-  const courseCard = $(".course-card h3");
-  log("course created", courseCard && courseCard.textContent.includes(promptReply) ? "OK" : "FAIL");
-
   const stored0 = w.QuizStore.loadCourses();
-  log("persisted to store", stored0.length === 1 && stored0[0].name === promptReply ? "OK" : JSON.stringify(stored0));
+  log("course created", stored0.length === 1 && stored0[0].name === promptReply ? "OK" : JSON.stringify(stored0));
+  log("empty materia hidden", !$(".course-card") ? "OK" : "FAIL");
+
+  stored0[0].quizzes = [w.Quiz.S.questionnaires[0].hash];
+  w.QuizStore.saveCourses(stored0);
+  $('#main-nav [data-view="cursos"]').dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 50));
 
   const quizBtn = $('[data-open-course][data-tab="quizzes"]');
   click(quizBtn);
@@ -135,7 +138,7 @@ const PROMPT = () => promptReply;
   A.dom.window.close();
 
   // ---------- NON-OWNER ----------
-  html = html.replace('name:"Orianna Fernandez"', 'name:"Someone Else"');
+  html = html.replace('name:"Orianna Fernandez"', 'name:"Someone Else"').replace('isAdmin:()=>true', 'isAdmin:()=>false');
   const B = boot();
   const wb = B.dom.window;
   await new Promise((r) => setTimeout(r, 300));

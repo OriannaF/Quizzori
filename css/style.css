@@ -516,7 +516,9 @@ h2 { font-size: 22px; font-weight: 700; margin: 0 0 8px; }
 }
 
 /* ---- Course / exam cards ---- */
-.exam-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+.exam-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(430px, 1fr)); gap: 28px; }
+.exam-card .mat-titling h3 { margin: 0 0 6px; }
+.exam-card .mat-titling .eyebrow { display: inline-block; }
 
 .exam-card {
   background: var(--panel);
