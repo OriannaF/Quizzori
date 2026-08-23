@@ -1,0 +1,12 @@
+{
+  "name": "quizzori",
+  "version": "1.0.0",
+  "private": true,
+  "description": "App de estudio con quizzes y repetición espaciada",
+  "scripts": {
+    "test": "node tests/run.shell.js && node tests/run.quiz.js && node tests/run.cursos.js && node tests/run.materiales.js"
+  },
+  "devDependencies": {
+    "jsdom": "^24.0.0"
+  }
+}

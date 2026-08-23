@@ -1,0 +1,85 @@
+const { JSDOM } = require("jsdom");
+const fs = require("fs");
+const path = require("path");
+
+const ROOT = require("path").join(__dirname, "..");
+const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8")
+  .replace(/<script src="([^"]+)"><\/script>/g, (m, src) => `<script>${fs.readFileSync(path.join(ROOT, src.split("?")[0]), "utf8")}\n</script>`)
+  .replace(/<link[^>]*>/g, "");
+
+const errors = [];
+const dom = new JSDOM(html, {
+  url: "http://localhost/",
+  runScripts: "dangerously",
+  pretendToBeVisual: true,
+  beforeParse(window) {
+    window.fetch = (url) => {
+      const p = path.join(ROOT, decodeURIComponent(String(url).replace("http://localhost/", "")));
+      const txt = fs.existsSync(p) ? fs.readFileSync(p, "utf8") : "";
+      return Promise.resolve({ ok: true, text: () => Promise.resolve(txt) });
+    };
+    window.HTMLElement.prototype.scrollIntoView = function () {};
+    window.matchMedia = () => ({ matches: false, addListener() {}, removeListener() {} });
+    window.scrollTo = () => {};
+    window.confirm = () => true;
+  }
+});
+dom.window.addEventListener("error", (e) => errors.push("window error: " + e.message));
+
+const w = dom.window;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+(async () => {
+  await sleep(300);
+  const $ = (s) => w.document.querySelector(s);
+  const log = (k, v) => console.log(k.padEnd(34), v);
+
+  log("study widget painted", $("#hp-time").textContent !== "--:--" ? "OK (" + $("#hp-time").textContent + ")" : "FAIL");
+  log("home dates widget", !!$("#home-dates .widget") ? "OK" : "missing (ok si no hay fechas)");
+
+  const startBtn = $('[id^="btn-start-"]');
+  startBtn.click();
+  await sleep(100);
+
+  const n = w.document.querySelectorAll(".qcard").length;
+  for (const cb of w.document.querySelectorAll(".opt input[type=checkbox]")) {
+    cb.checked = true;
+    cb.dispatchEvent(new w.Event("change", { bubbles: true }));
+  }
+  for (const sel of w.document.querySelectorAll(".slot-select")) {
+    sel.value = "1";
+    sel.dispatchEvent(new w.Event("change", { bubbles: true }));
+  }
+  for (const f of w.document.querySelectorAll(".fill-input")) {
+    f.value = "x";
+    f.dispatchEvent(new w.Event("input", { bubbles: true }));
+  }
+  await sleep(100);
+  log("all answered", $("#cnt-answered").textContent + "/" + n);
+
+  $("#btn-submit").click();
+  await sleep(200);
+  log("results hero", $(".result-hero") ? $(".result-hero .big").textContent.replace(/\s+/g, " ").trim() : "MISSING");
+  log("detail rows", w.document.querySelectorAll(".result-hero ~ .qcard").length + " qcards");
+
+  click2("#btn-home");
+  function click2(sel) {
+    const el = w.document.querySelector(sel);
+    if (el) el.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  }
+  await sleep(100);
+  log("back to view", $("#app").textContent.includes("Quizz activo") ? "OK" : "FAIL");
+
+  click2('#main-nav [data-view="cursos"]');
+  await sleep(50);
+  const sec = $("details.manage-card summary");
+  if (sec) {
+    sec.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+    await sleep(50);
+    log("calendar renders", $(".cal-grid .cal-day") ? "OK" : "FAIL");
+  }
+
+  const errs = errors.filter(e => !/not implemented|Could not load|css/i.test(e));
+  log("runtime errors", errs.length ? "\n  " + errs.join("\n  ") : "none");
+  process.exit(errs.length ? 1 : 0);
+})().catch((e) => { console.error("HARNESS FAIL:", e); process.exit(2); });
