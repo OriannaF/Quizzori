@@ -678,24 +678,47 @@
     if (emptyBtn) emptyBtn.addEventListener("click", () => navigate("cursos"));
   }
 
-  function renderCursos() {
-    const qs = S().questionnaires;
-    const stats = qs.map((qq) => Quiz.statsFor(qq.hash)).filter(Boolean);
+  function loadCourses() {
+    try {
+      const arr = window.QuizStore.loadCourses();
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) { return []; }
+  }
 
-    const courseCards = qs.map((qq, i) => {
-      const st = stats.find((s) => s.hash === qq.hash);
-      if (!st) return "";
-      const icon = EXAM_ICONS[(i + 1) % EXAM_ICONS.length];
-      const tone = toneOf(i);
-      const pct = st.total ? Math.round((st.mastered / st.total) * 100) : 0;
-      const started = (st.total - st.newN) > 0;
-      return `
+  function updateCourses(list) {
+    window.QuizStore.saveCourses(list);
+    if (currentView === "cursos") renderCursos();
+    if (openCourseId) renderCourseModal();
+  }
+
+  function findCourse(id) {
+    return loadCourses().find((c) => c.id === id);
+  }
+
+  function isOwner() {
+    const C = window.Cloud;
+    const u = C && typeof C.user === "function" ? C.user() : null;
+    if (!u || !u.name) return false;
+    const n = String(u.name).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    return n.indexOf("orianna") !== -1;
+  }
+
+  function safeUrl(u) {
+    const s = String(u || "").trim();
+    return /^https?:\/\//i.test(s) ? s : "";
+  }
+
+  function questionnaireCardHTML(st, i) {
+    const tone = toneOf(i);
+    const pct = st.total ? Math.round((st.mastered / st.total) * 100) : 0;
+    const started = (st.total - st.newN) > 0;
+    return `
       <div class="exam-card ${tone}">
-        <div class="course-side"><span class="material-symbols-outlined">${icon}</span></div>
+        <div class="course-side"><span class="material-symbols-outlined">${EXAM_ICONS[(i + 1) % EXAM_ICONS.length]}</span></div>
         <div class="exam-card-body">
           <div class="course-top">
             <div style="min-width:0">
-              <span class="eyebrow ${tone ? (tone === "tone-green" ? "tone-green" : "tone-purple") : "tone-blue"}">${started ? "En progreso" : "Sin empezar"}</span>
+              <span class="eyebrow ${tone === "tone-green" ? "tone-green" : tone === "tone-purple" ? "tone-purple" : "tone-blue"}">${started ? "En progreso" : "Sin empezar"}</span>
               <h3>${esc(st.name)}</h3>
             </div>
             <div class="pct-badge ${tone === "tone-green" ? "tone-green" : ""} ${tone === "tone-purple" ? "tone-purple" : ""}">${pct}%</div>
@@ -717,20 +740,286 @@
               <span class="material-symbols-outlined">play_arrow</span>
             </button>
           </div>
-          ${Quiz.draftOf(qq.hash) ? `
+          ${Quiz.draftOf(st.hash) ? `
           <button class="draft-chip" id="btn-resume-${st.hash}">
             <span class="material-symbols-outlined">history</span>
             Continuar sesión guardada
           </button>` : ""}
         </div>
       </div>`;
-    }).join("");
+  }
 
-    const manageCards = qs.map((qq) => {
-      const st = stats.find((s) => s.hash === qq.hash);
-      if (!st) return "";
-      return manageCardHTML(qq, st);
-    }).join("");
+  function courseCardHTML(c, i) {
+    const owner = isOwner();
+    const nq = (c.quizzes || []).length;
+    const nm = (c.material || []).length;
+    const nl = (c.links || []).length;
+    const tone = toneOf(i);
+    return `
+      <div class="exam-card ${tone} course-card">
+        <div class="course-side"><span class="material-symbols-outlined">${EXAM_ICONS[(i + 1) % EXAM_ICONS.length]}</span></div>
+        <div class="exam-card-body">
+          <div class="course-top">
+            <div style="min-width:0">
+              <span class="eyebrow ${tone === "tone-green" ? "tone-green" : tone === "tone-purple" ? "tone-purple" : "tone-blue"}">Curso</span>
+              <h3>${esc(c.name)}${owner ? `
+              <button class="mini-edit" data-rename-course="${c.id}" title="Renombrar curso">
+                <span class="material-symbols-outlined">edit</span>
+              </button>` : ""}</h3>
+            </div>
+          </div>
+          <div class="exam-card-meta">
+            <span><b>${nq}</b> quizzes</span><span>·</span>
+            <span><b>${nm}</b> material</span><span>·</span>
+            <span><b>${nl}</b> links</span>
+          </div>
+          <div class="course-actions">
+            <button class="course-act" data-open-course="${c.id}" data-tab="material">
+              <span class="material-symbols-outlined">folder</span>Material
+            </button>
+            <button class="course-act" data-open-course="${c.id}" data-tab="quizzes">
+              <span class="material-symbols-outlined">quiz</span>Quizzes
+            </button>
+            <button class="course-act" data-open-course="${c.id}" data-tab="links">
+              <span class="material-symbols-outlined">link</span>Links
+            </button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function ownerHeadExtra() {
+    return isOwner()
+      ? `<button class="btn ghost sm-new" id="btn-new-course"><span class="material-symbols-outlined">add</span>Nuevo curso</button>`
+      : `<span class="mono-label muted lock-note"><span class="material-symbols-outlined">lock</span>solo lectura · entrá con tu cuenta para editar</span>`;
+  }
+
+  function createCourse() {
+    if (!isOwner()) { toast("Solo la cuenta de Orianna puede crear cursos."); return; }
+    const name = (window.prompt("Nombre del curso:") || "").trim();
+    if (!name) return;
+    const list = loadCourses();
+    list.push({ id: Date.now().toString(36), name, quizzes: [], material: [], links: [] });
+    updateCourses(list);
+    toast("Curso creado.");
+  }
+
+  function renameCourse(id) {
+    if (!isOwner()) { toast("Solo la cuenta de Orianna puede editar cursos."); return; }
+    const c = findCourse(id);
+    if (!c) return;
+    const name = (window.prompt("Nuevo nombre del curso:", c.name) || "").trim();
+    if (!name) return;
+    mutateCourse(id, (cc) => { cc.name = name; });
+    toast("Curso renombrado.");
+  }
+
+  function deleteCourse(id) {
+    if (!isOwner()) { toast("Solo la cuenta de Orianna puede borrar cursos."); return; }
+    const c = findCourse(id);
+    if (!c) return;
+    if (!window.confirm(`¿Eliminar el curso "${c.name}"? Los quizzes no se borran.`)) return;
+    updateCourses(loadCourses().filter((x) => x.id !== id));
+    closeCourseModal();
+    toast("Curso eliminado.");
+  }
+
+  function mutateCourse(id, fn) {
+    const list = loadCourses();
+    const c = list.find((x) => x.id === id);
+    if (!c) return;
+    fn(c);
+    updateCourses(list);
+  }
+
+  let openCourseId = null;
+  let openCourseTab = "quizzes";
+
+  function ensureModal() {
+    let ov = document.getElementById("modal-overlay");
+    if (!ov) {
+      ov = document.createElement("div");
+      ov.id = "modal-overlay";
+      ov.className = "modal-overlay";
+      ov.addEventListener("click", (e) => { if (e.target === ov) closeCourseModal(); });
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeCourseModal(); });
+      document.body.appendChild(ov);
+    }
+    return ov;
+  }
+
+  function closeCourseModal() {
+    openCourseId = null;
+    const ov = document.getElementById("modal-overlay");
+    if (ov) ov.remove();
+  }
+
+  function openCourseModal(id, tab) {
+    openCourseId = id;
+    openCourseTab = tab || "quizzes";
+    renderCourseModal();
+  }
+
+  function renderCourseModal() {
+    const c = findCourse(openCourseId);
+    if (!c) { closeCourseModal(); return; }
+    const owner = isOwner();
+    const qs = S().questionnaires;
+
+    let body = "";
+    if (openCourseTab === "quizzes") {
+      body = qs.map((qq) => {
+        const st = Quiz.statsFor(qq.hash);
+        const on = (c.quizzes || []).indexOf(qq.hash) !== -1;
+        return `
+        <div class="assign-row">
+          <label class="check-line">
+            <input type="checkbox" data-assign="${qq.hash}" ${on ? "checked" : ""} ${owner ? "" : "disabled"}>
+            <span>${esc(qq.name)}</span>
+          </label>
+          <span class="mono-label muted">${st ? st.total + " preg." : ""}</span>
+          <button class="mini-edit play-mini" data-play="${qq.hash}" title="Practicar este quiz">
+            <span class="material-symbols-outlined">play_arrow</span>
+          </button>
+        </div>`;
+      }).join("") || `<p class="muted small">Todavía no hay cuestionarios cargados.</p>`;
+      if (!owner) body += `<p class="muted small lock-note"><span class="material-symbols-outlined">lock</span>Solo la cuenta de Orianna puede asignar quizzes.</p>`;
+    } else {
+      const kind = openCourseTab;
+      const items = Array.isArray(c[kind]) ? c[kind] : [];
+      body = items.map((it, idx) => `
+        <div class="link-row">
+          <span class="material-symbols-outlined">${kind === "material" ? "description" : "link"}</span>
+          <a href="${esc(it.url)}" target="_blank" rel="noopener noreferrer">${esc(it.name)}</a>
+          ${owner ? `<button class="mini-edit del" data-unlink="${idx}" title="Quitar">
+            <span class="material-symbols-outlined">close</span>
+          </button>` : ""}
+        </div>`).join("") || `<p class="muted small">Todavía no hay nada acá.</p>`;
+      if (owner) body += `
+        <form class="link-add" data-kind="${kind}">
+          <input class="input sm" name="lkname" placeholder="${kind === "material" ? "Nombre del material" : "Nombre del link"}" required>
+          <input class="input sm" name="lkurl" placeholder="https://…" required>
+          <button class="btn primary link-add-btn" type="submit"><span class="material-symbols-outlined">add</span>Agregar</button>
+        </form>`;
+    }
+
+    const tabs = [["material", "folder", "Material"], ["quizzes", "quiz", "Quizzes"], ["links", "link", "Links"]];
+    const ci = Math.max(0, loadCourses().findIndex((x) => x && x.id === c.id));
+    const ov = ensureModal();
+    ov.innerHTML = `
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <span class="material-symbols-outlined accent-ic">${EXAM_ICONS[(ci + 1) % EXAM_ICONS.length]}</span>
+        <h3>${esc(c.name)}</h3>
+        ${owner ? `<button class="mini-edit" id="m-rename" title="Renombrar"><span class="material-symbols-outlined">edit</span></button>` : ""}
+        <button class="mini-edit" id="m-close" title="Cerrar"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="modal-tabs">${tabs.map(([tid, ic, label]) => `
+        <button class="modal-tab ${openCourseTab === tid ? "active" : ""}" data-tab="${tid}">
+          <span class="material-symbols-outlined">${ic}</span>${label}
+        </button>`).join("")}
+      </div>
+      <div class="modal-body">${body}</div>
+      <div class="modal-foot">
+        ${owner ? `<button class="btn ghost danger" id="m-del"><span class="material-symbols-outlined">delete</span>Eliminar curso</button>`
+                : `<span class="mono-label muted">solo lectura</span>`}
+        <button class="btn ghost" id="m-close2">Cerrar</button>
+      </div>
+    </div>`;
+
+    ov.querySelectorAll("[data-tab]").forEach((b) => {
+      b.onclick = () => { openCourseTab = b.dataset.tab; renderCourseModal(); };
+    });
+    const xc = ov.querySelector("#m-close"); if (xc) xc.onclick = closeCourseModal;
+    const xc2 = ov.querySelector("#m-close2"); if (xc2) xc2.onclick = closeCourseModal;
+    const rn = ov.querySelector("#m-rename"); if (rn) rn.onclick = () => renameCourse(c.id);
+    const dl = ov.querySelector("#m-del"); if (dl) dl.onclick = () => deleteCourse(c.id);
+
+    ov.querySelectorAll("[data-play]").forEach((b) => {
+      b.onclick = () => { closeCourseModal(); startQuiz(b.dataset.play); };
+    });
+
+    ov.querySelectorAll("[data-assign]").forEach((cb) => {
+      cb.onchange = () => {
+        mutateCourse(c.id, (cc) => {
+          cc.quizzes = Array.isArray(cc.quizzes) ? cc.quizzes.slice() : [];
+          const i = cc.quizzes.indexOf(cb.dataset.assign);
+          if (cb.checked && i === -1) cc.quizzes.push(cb.dataset.assign);
+          if (!cb.checked && i !== -1) cc.quizzes.splice(i, 1);
+        });
+      };
+    });
+
+    ov.querySelectorAll("[data-unlink]").forEach((b) => {
+      b.onclick = () => {
+        mutateCourse(c.id, (cc) => {
+          const items = Array.isArray(cc[openCourseTab]) ? cc[openCourseTab] : [];
+          items.splice(parseInt(b.dataset.unlink, 10), 1);
+          cc[openCourseTab] = items;
+        });
+      };
+    });
+
+    const form = ov.querySelector(".link-add");
+    if (form) {
+      const nameEl = form.querySelector("[name=lkname]");
+      const urlEl = form.querySelector("[name=lkurl]");
+      form.onsubmit = (e) => {
+        e.preventDefault();
+        const name = nameEl.value.trim();
+        const url = safeUrl(urlEl.value);
+        if (!url) { toast("El link tiene que empezar con http:// o https://"); return; }
+        mutateCourse(c.id, (cc) => {
+          cc[openCourseTab] = Array.isArray(cc[openCourseTab]) ? cc[openCourseTab] : [];
+          cc[openCourseTab].push({ name: name || url, url });
+        });
+        nameEl.value = "";
+        urlEl.value = "";
+        toast("Agregado al curso.");
+      };
+    }
+  }
+
+  function renderCursos() {
+    const qs = S().questionnaires;
+    const stats = qs.map((qq) => Quiz.statsFor(qq.hash)).filter(Boolean);
+    const courses = loadCourses();
+    const statOf = (hash) => stats.find((s) => s.hash === hash);
+    const cardOf = (qq, i) => {
+      const st = statOf(qq.hash);
+      return st ? questionnaireCardHTML(st, i) : "";
+    };
+
+    let coursesGrid;
+    let headSub;
+    let freeSection = "";
+
+    if (!courses.length) {
+      coursesGrid = qs.map(cardOf).join("") || `
+        <div class="card center">
+          <h2>Todavía no hay cursos</h2>
+          <p class="muted">Creá uno con el botón de arriba o subí un CSV abajo.</p>
+        </div>`;
+      headSub = "Cada CSV carga como un cuestionario listo para practicar";
+    } else {
+      const assigned = new Set();
+      courses.forEach((cc) => (cc.quizzes || []).forEach((h) => assigned.add(h)));
+      coursesGrid = courses.map(courseCardHTML).join("") || `
+        <div class="card center"><h2>Sin cursos</h2><p class="muted">Creá uno con el botón de arriba.</p></div>`;
+      const freeCards = qs.filter((qq) => !assigned.has(qq.hash)).map(cardOf).join("");
+      freeSection = freeCards ? `
+      <section class="home-section">
+        <div class="sec-head">
+          <span class="material-symbols-outlined">select_all</span>
+          <div>
+            <h2>Quizzes sin curso</h2>
+            <p class="muted small sub">Asignalos desde el botón Quizzes de cada curso</p>
+          </div>
+        </div>
+        <div class="exam-grid">${freeCards}</div>
+      </section>` : "";
+      headSub = "Tus materias con su material, quizzes y links";
+    }
 
     view(`
       <section class="home-section">
@@ -738,16 +1027,13 @@
           <span class="material-symbols-outlined">auto_stories</span>
           <div>
             <h2>Mis cursos</h2>
-            <p class="muted small sub">Un cuestionario por cada CSV</p>
+            <p class="muted small sub">${headSub}</p>
           </div>
+          ${ownerHeadExtra()}
         </div>
-        <div class="exam-grid">${courseCards || `
-          <div class="card center">
-            <h2>Todavía no hay cursos</h2>
-            <p class="muted">Subí un CSV abajo para empezar.</p>
-          </div>`}
-        </div>
+        <div class="exam-grid">${coursesGrid}</div>
       </section>
+      ${freeSection}
       ${qs.length ? `
       <section class="home-section">
         <div class="sec-head">
@@ -757,7 +1043,7 @@
             <p class="muted small sub">Fecha de parcial, calendario y progreso por cuestionario</p>
           </div>
         </div>
-        ${manageCards}
+        ${qs.map((qq) => { const st = statOf(qq.hash); return st ? manageCardHTML(qq, st) : ""; }).join("")}
       </section>` : ""}
       <section class="home-section">
         <div class="card">
@@ -770,6 +1056,17 @@
       </section>
     `);
 
+    const nb = document.getElementById("btn-new-course");
+    if (nb) nb.onclick = createCourse;
+    document.querySelectorAll("[data-open-course]").forEach((b) => {
+      b.onclick = () => openCourseModal(b.dataset.openCourse, b.dataset.tab);
+    });
+    document.querySelectorAll("[data-rename-course]").forEach((b) => {
+      b.onclick = () => renameCourse(b.dataset.renameCourse);
+    });
+    qs.forEach((qq) => {
+      if (document.getElementById("btn-start-" + qq.hash)) bindExamCard(qq.hash, qq);
+    });
     bindUpload("dropzone2", "file2");
     bindManageCards(qs);
   }

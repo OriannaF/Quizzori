@@ -70,6 +70,9 @@ const QuizStore = (() => {
   function loadExamDates(h) { return get("quiz.examdates." + h, null); }
   function saveExamDates(h, d) { set("quiz.examdates." + h, d); }
 
+  function loadCourses() { return get("quiz.courses", []); }
+  function saveCourses(c) { set("quiz.courses", Array.isArray(c) ? c : []); }
+
   function snapshot() {
     const kv = {}, times = {};
     try {
@@ -101,6 +104,7 @@ const QuizStore = (() => {
     hash, loadProgress, saveProgress, resetProgress,
     loadSettings, saveSettings, loadDraft, saveDraft, clearDraft,
     loadLastCsv, saveLastCsv, loadExamDates, saveExamDates,
+    loadCourses, saveCourses,
     snapshot, restore, onChange
   };
 })();
