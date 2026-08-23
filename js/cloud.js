@@ -36,6 +36,8 @@
     const isConfigured = () =>
       !!FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey.indexOf("PONÉ") !== 0;
 
+    const ADMIN_EMAILS = ["oriannafernandezdelrosario@gmail.com"];
+
     let fb = null;
     let user = null;
     let pushTimer = null;
@@ -136,7 +138,7 @@
     }
 
     function startSession(u) {
-      user = u ? { uid: u.uid, name: u.displayName || "" } : null;
+      user = u ? { uid: u.uid, name: u.displayName || "", email: u.email || "" } : null;
       if (!user) { emit(); return; }
       try { localStorage.setItem("quiz.cloud.wasIn", "1"); } catch (e) {}
       pullMergeAndPush().then(() => {
@@ -168,7 +170,19 @@
           throw err;
         });
       }).then((cred) => {
-        if (cred && cred.user) startSession({ uid: cred.user.uid, name: cred.user.displayName || "" });
+        if (cred && cred.user) startSession({ uid: cred.user.uid, name: cred.user.displayName || "", email: cred.user.email || "" });
+      });
+    }
+
+    function isAdmin() {
+      return !!user && ADMIN_EMAILS.indexOf(String(user.email || "").toLowerCase()) !== -1;
+    }
+
+    function ensureDb() {
+      if (!isConfigured()) return Promise.reject(new Error("Firebase sin configurar"));
+      return loadSdk().then((firebase) => {
+        initFb(firebase);
+        return fb.firestore();
       });
     }
 
@@ -197,6 +211,7 @@
     return {
       isConfigured, init, signIn, signOut,
       user: () => user,
+      isAdmin, ensureDb,
       onChange: (fn) => { if (typeof fn === "function") cbs.push(fn); }
     };
   })();

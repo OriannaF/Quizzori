@@ -242,9 +242,16 @@
       const u = Cloud && Cloud.user();
       const full = u ? (u.name || "Cuenta") : "";
       const shortName = full.trim().split(/\s+/)[0] || "Cuenta";
-      if (ic) ic.textContent = u ? "cloud_done" : "account_circle";
-      if (label) label.textContent = u ? full : "Entrar";
-      if (aic) aic.textContent = u ? "cloud_done" : "account_circle";
+      if (ic) ic.textContent = "person";
+      if (label) {
+        label.textContent = u ? "Cerrar sesión" : "Entrar";
+        const sub = label.parentElement && label.parentElement.querySelector("small");
+        if (sub) {
+          sub.textContent = u ? "" : "Iniciar sesión";
+          sub.style.display = u ? "none" : "";
+        }
+      }
+      if (aic) aic.textContent = "person";
       if (aname) aname.textContent = u ? shortName : "Entrar";
       btns.forEach((b) => {
         b.title = !u ? "Iniciar sesión con Google y sincronizar progreso"
@@ -708,6 +715,7 @@
 
   function isOwner() {
     const C = window.Cloud;
+    if (C && typeof C.isAdmin === "function" && C.isAdmin()) return true;
     const u = C && typeof C.user === "function" ? C.user() : null;
     if (!u || !u.name) return false;
     const n = String(u.name).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -991,6 +999,63 @@
     }
   }
 
+  function paintMateriales() {
+    const list = document.getElementById("mat-list");
+    if (!list) return;
+    const M = window.Materiales;
+    const items = M ? M.items() : [];
+    list.innerHTML = items.map((m) => `
+      <span class="mat-item">
+        <a class="mat-btn" href="${esc(m.url)}" target="_blank" rel="noopener noreferrer">
+          <span class="material-symbols-outlined">${/\.pdf($|\?)/i.test(m.url) ? "picture_as_pdf" : "link"}</span>${esc(m.nombre)}
+        </a>
+        ${isOwner() ? `<button class="mini-edit del mat-del" data-mat-del="${m.id}" title="Eliminar material">
+          <span class="material-symbols-outlined">close</span>
+        </button>` : ""}
+      </span>`).join("");
+    const empty = document.getElementById("mat-empty");
+    if (empty) empty.hidden = items.length > 0;
+    list.querySelectorAll("[data-mat-del]").forEach((b) => {
+      b.onclick = () => {
+        window.Materiales.remove(b.dataset.matDel)
+          .then(() => { toast("Material eliminado."); return window.Materiales.refresh(); })
+          .catch(() => toast("No se pudo eliminar (revisá las reglas de Firestore)."));
+      };
+    });
+  }
+
+  function bindMateriales() {
+    const M = window.Materiales;
+    const form = document.getElementById("mat-form");
+    const admin = isOwner();
+    if (form) form.style.display = admin ? "block" : "none";
+    if (M && !window.__matSubscribed) {
+      M.subscribe(() => paintMateriales());
+      window.__matSubscribed = true;
+    }
+    if (!M) return;
+    if (M.isLoaded()) paintMateriales();
+    else M.fetchAll();
+    if (form && admin && !form.dataset.bound) {
+      form.dataset.bound = "1";
+      const nameEl = form.querySelector("[name=matname]");
+      const urlEl = form.querySelector("[name=maturl]");
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const url = M.safeUrl(urlEl.value);
+        if (!url) { toast("El link tiene que empezar con http:// o https://"); return; }
+        M.add(nameEl.value, url).then(() => {
+          nameEl.value = "";
+          urlEl.value = "";
+          toast("Material publicado.");
+          return M.refresh();
+        }).catch((err) => {
+          toast("No se pudo publicar: " + (err && err.message ? err.message : "error"));
+        });
+      });
+    }
+  }
+
   function renderCursos() {
     const qs = S().questionnaires;
     const stats = qs.map((qq) => Quiz.statsFor(qq.hash)).filter(Boolean);
@@ -1044,6 +1109,26 @@
         </div>
         <div class="exam-grid">${coursesGrid}</div>
       </section>
+      <section class="home-section">
+        <div class="sec-head">
+          <span class="material-symbols-outlined">folder_shared</span>
+          <div>
+            <h2>Material de las materias</h2>
+            <p class="muted small sub">Links públicos — visibles para todos los visitantes</p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="mat-grid" id="mat-list"></div>
+          <p class="muted small" id="mat-empty">Todavía no hay material publicado.</p>
+          <form id="mat-form" style="display:none">
+            <label class="field-label visually-hidden" for="matname">Nombre de materia</label>
+            <input class="input sm" id="matname" name="matname" placeholder="Nombre de la materia" required>
+            <label class="field-label visually-hidden" for="maturl">Link</label>
+            <input class="input sm" id="maturl" name="maturl" placeholder="https://…" required>
+            <button class="btn primary mat-add-btn" type="submit"><span class="material-symbols-outlined">add</span>Nuevo material</button>
+          </form>
+        </div>
+      </section>
       ${freeSection}
       ${qs.length ? `
       <section class="home-section">
@@ -1080,6 +1165,7 @@
     });
     bindUpload("dropzone2", "file2");
     bindManageCards(qs);
+    bindMateriales();
   }
 
   function weekPlanData() {
