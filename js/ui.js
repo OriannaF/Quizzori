@@ -352,19 +352,113 @@
     $("#app").innerHTML = `<div class="view">${html}</div>`;
   }
 
+  let uploadCtx = null;
+
   function readFile(file) {
     const reader = new FileReader();
     reader.onload = () => {
-      const res = Quiz.loadCsv(String(reader.result), file.name);
-      if (res.ok) {
-        warningsDismissed = false;
-        navigate("inicio");
-        toast(`Cuestionario cargado: ${S().questions.length} preguntas`);
-      } else {
-        renderLoadError(res.errors);
-      }
+      const text = String(reader.result);
+      const res = window.CSV.parseQuestions(text);
+      if (!res.ok) { renderLoadError(res.errors); return; }
+      warningsDismissed = false;
+      openUploadModal({ name: file.name, text, questions: res.questions.length });
     };
     reader.readAsText(file, "UTF-8");
+  }
+
+  function closeUploadModal() {
+    uploadCtx = null;
+    const ov = document.getElementById("upload-overlay");
+    if (!ov) return;
+    if (ov._onKey) document.removeEventListener("keydown", ov._onKey);
+    ov.remove();
+  }
+
+  function sendMateriaRequest(nombre, ctx) {
+    const MAIL = "oriannafernandezdelrosario@gmail.com";
+    const subject = `Solicitud: nueva materia "${nombre}"`;
+    const body = [
+      `Quiero agregar la materia "${nombre}" a Quizzori.`,
+      "",
+      `Cuestionario: ${ctx.name}`,
+      `Preguntas detectadas: ${ctx.questions}`,
+      "",
+      "Adjunto el CSV para cargarlo."
+    ].join("\r\n");
+    try {
+      window.location.href = `mailto:${MAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      toast("Abrimos tu correo para enviar la solicitud.");
+    } catch (e) {
+      toast(`Mandale la solicitud a ${MAIL} con el CSV adjunto.`);
+    }
+  }
+
+  function openUploadModal(ctx) {
+    closeUploadModal();
+    uploadCtx = ctx;
+    const courses = loadCourses();
+    const hasCourses = courses.length > 0;
+    const opts = courses.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("");
+    const ov = document.createElement("div");
+    ov.id = "upload-overlay";
+    ov.className = "modal-overlay";
+    ov.addEventListener("click", (e) => { if (e.target === ov) closeUploadModal(); });
+    ov._onKey = (e) => { if (e.key === "Escape") closeUploadModal(); };
+    document.addEventListener("keydown", ov._onKey);
+    ov.innerHTML = `
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <span class="material-symbols-outlined accent-ic">upload_file</span>
+        <h3>${esc(ctx.name)}</h3>
+        <button class="mini-edit" id="up-close" title="Cerrar"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="modal-body">
+        <p class="muted small">${ctx.questions} preguntas detectadas. ¿De qué materia es este cuestionario?</p>
+        <label class="check-line"><input type="radio" name="uptype" value="exist" ${hasCourses ? "checked" : "disabled"}>
+          <span>Materia existente</span></label>
+        <select class="input sm" id="up-existing" ${hasCourses ? "" : "disabled"}>${opts}</select>
+        <label class="check-line" style="margin-top:6px"><input type="radio" name="uptype" value="new" ${hasCourses ? "" : "checked"}>
+          <span>Materia nueva (requiere aprobación)</span></label>
+        <input class="input sm" id="up-newname" placeholder="Nombre de la materia nueva" ${hasCourses ? "disabled" : ""}>
+        <p class="muted small">Con materia nueva se abre un mail a Orianna con la solicitud; adjuntá el CSV.</p>
+      </div>
+      <div class="modal-foot">
+        <button class="btn ghost" id="up-cancel">Cancelar</button>
+        <button class="btn primary" id="up-confirm">Confirmar</button>
+      </div>
+    </div>`;
+    document.body.appendChild(ov);
+    ov.querySelectorAll("[name=uptype]").forEach((r) => {
+      r.addEventListener("change", () => {
+        const mode = ov.querySelector("[name=uptype]:checked").value;
+        ov.querySelector("#up-existing").disabled = mode !== "exist";
+        ov.querySelector("#up-newname").disabled = mode !== "new";
+      });
+    });
+    ov.querySelector("#up-close").onclick = closeUploadModal;
+    ov.querySelector("#up-cancel").onclick = closeUploadModal;
+    ov.querySelector("#up-confirm").onclick = () => {
+      const mode = ov.querySelector("[name=uptype]:checked").value;
+      if (mode === "exist") {
+        const c = findCourse(ov.querySelector("#up-existing").value);
+        if (!c) { toast("Elegí una materia."); return; }
+        const res = Quiz.loadCsv(uploadCtx.text, uploadCtx.name);
+        if (!res.ok) { renderLoadError(res.errors); closeUploadModal(); return; }
+        const h = S().currentHash;
+        mutateCourse(c.id, (cc) => {
+          cc.quizzes = Array.isArray(cc.quizzes) ? cc.quizzes.slice() : [];
+          if (cc.quizzes.indexOf(h) === -1) cc.quizzes.push(h);
+        });
+        closeUploadModal();
+        refreshView();
+        toast(`Cuestionario asignado a "${c.name}".`);
+      } else {
+        const nombre = ov.querySelector("#up-newname").value.trim();
+        if (!nombre) { toast("Escribí el nombre de la materia nueva."); return; }
+        sendMateriaRequest(nombre, uploadCtx);
+        closeUploadModal();
+      }
+    };
   }
 
   function bindUpload(zoneId, fileId) {
@@ -462,8 +556,6 @@
     if (sizeSel) sizeSel.addEventListener("change", (e) => Quiz.setSize(e.target.value));
     const pointsInp = document.getElementById("inp-points-" + hash);
     if (pointsInp) pointsInp.addEventListener("change", (e) => Quiz.setPoints(e.target.value));
-    const examInp = document.getElementById("inp-exam-" + hash);
-    if (examInp) examInp.addEventListener("change", (e) => { Quiz.setExamDateFor(hash, e.target.value); renderCalFor(hash); renderHomeDates(); });
     const resetBtn = document.getElementById("btn-reset-" + hash);
     if (resetBtn) resetBtn.addEventListener("click", () => {
       if (confirm(`¿Reiniciar todo el progreso de "${qq.name}"?`)) {
@@ -517,108 +609,77 @@
     </div>`;
   }
 
-  function manageCardHTML(qq, st) {
-    return `
-    <details class="manage-card" id="sec-${st.hash}">
-      <summary>
-        <span class="material-symbols-outlined" style="color:var(--accent-soft)">tune</span>
-        ${esc(st.name)}
-        <span class="muted small" style="font-weight:400;font-family:'Manrope',sans-serif;text-transform:none;letter-spacing:0">fecha de parcial, calendario y progreso</span>
-        <span class="material-symbols-outlined summary-chev">expand_more</span>
-      </summary>
-      <div class="manage-body">
-        <div class="controls">
-          <label>Fecha de parcial
-            <input class="input" id="inp-exam-${st.hash}" type="date" value="${st.date}">
-          </label>
-          <label>Puntos por pregunta
-            <input class="input" id="inp-points-${st.hash}" type="number" min="0.25" step="0.25" value="${S().settings.points}">
-          </label>
-          <button class="btn danger sm" id="btn-reset-${st.hash}">Reiniciar progreso</button>
-        </div>
-        <p class="muted small">Las tarjetas de este cuestionario no se planifican después de su fecha de parcial.</p>
-        <div class="cal-block">
-          <div class="card-head">
-            <h2 style="font-size:16px">Calendario de repasos</h2>
-            <div class="cal-nav">
-              <button class="btn icon cal-prev" title="Mes anterior">‹</button>
-              <span class="cal-label">${calLabel()}</span>
-              <button class="btn icon cal-next" title="Mes siguiente">›</button>
-            </div>
-          </div>
-          <div class="cal-grid"></div>
-          <div class="muted small">Hacé clic en un día para ver las preguntas planificadas.</div>
-          <div class="cal-list"></div>
-        </div>
-      </div>
-    </details>`;
-  }
 
-  function bindManageCards(qs) {
-    qs.forEach((qq) => {
-      const h = qq.hash;
-      const sec = document.getElementById("sec-" + h);
-      bindExamCard(h, qq);
-      if (sec) {
-        const prevBtn = sec.querySelector(".cal-prev");
-        if (prevBtn) prevBtn.addEventListener("click", () => {
-          calNow();
-          calMonth--;
-          if (calMonth < 0) { calMonth = 11; calYear--; }
-          renderAllCals();
-        });
-        const nextBtn = sec.querySelector(".cal-next");
-        if (nextBtn) nextBtn.addEventListener("click", () => {
-          calNow();
-          calMonth++;
-          if (calMonth > 11) { calMonth = 0; calYear++; }
-          renderAllCals();
-        });
-        renderCalFor(h);
-      }
-    });
-  }
-
-  function datesWidgetHTML(stats) {
+  function fechasBoxHTML(sfx) {
+    const courses = loadCourses();
+    const exams = Quiz.courseExamsMap();
     const today = new Date(); today.setHours(0, 0, 0, 0);
-    const items = stats
-      .filter((s) => s.date)
-      .map((s) => ({ s, d: new Date(s.date + "T12:00:00") }))
+    const rows = courses
+      .filter((c) => exams[c.id])
+      .map((c) => ({ c, d: new Date(exams[c.id] + "T12:00:00") }))
       .filter((x) => !isNaN(x.d.getTime()))
-      .sort((a, b) => a.d - b.d);
-    const rows = items.slice(0, 4).map(({ s, d }) => {
-      const days = Math.max(0, Math.round((d - today) / 86400000));
-      const past = days === 0 && d.getTime() < today.getTime();
-      const tone = days <= 7 && !past ? "" : past || days === 0 ? "past" : "tone-green";
-      return `
-      <div class="date-item">
-        <div class="date-box ${tone}">
-          <span class="mon">${MONTHS_SHORT[d.getMonth()]}</span>
-          <span class="day">${d.getDate()}</span>
-        </div>
-        <div class="date-info">
-          <h4>Parcial: ${esc(s.name)}</h4>
-          <span class="meta">${days === 0 ? "¡Es hoy!" : days === 1 ? "Mañana" : `${days} días restantes`}</span>
-        </div>
-        <div class="date-count ${past ? "past" : ""}"><b>${days}</b><span>días</span></div>
-      </div>`;
-    }).join("");
+      .sort((a, b) => a.d - b.d)
+      .map(({ c, d }) => {
+        const days = Math.round((d - today) / 86400000);
+        const past = days < 0;
+        const tone = past ? "past" : days <= 7 ? "" : "tone-green";
+        return `
+        <div class="date-item">
+          <div class="date-box ${tone}">
+            <span class="mon">${MONTHS_SHORT[d.getMonth()]}</span>
+            <span class="day">${d.getDate()}</span>
+          </div>
+          <div class="date-info">
+            <h4>${esc(c.name)}</h4>
+            <span class="meta">${days === 0 ? "¡Es hoy!" : days === 1 ? "Mañana" : past ? "Ya pasó" : `${days} días restantes`}</span>
+          </div>
+          <div class="date-count ${past ? "past" : ""}"><b>${Math.max(0, days)}</b><span>días</span></div>
+          <button class="mini-edit del fecha-del" data-fecha-del="${c.id}" title="Quitar fecha">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>`;
+      }).join("");
+    const options = courses.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join("");
     return `
     <div class="widget">
       <div class="widget-head">
-        <h3>Fechas</h3>
-        <span class="material-symbols-outlined">calendar_today</span>
+        <h3>Fechas de parciales</h3>
+        <span class="material-symbols-outlined">calendar_month</span>
       </div>
-      ${rows || `<div class="empty-note">Sin fechas de parcial.<br>Fijalas en la sección Cursos.</div>`}
-      <button class="btn block sm" id="btn-dates-go" style="margin-top:14px">
-        Gestionar fechas <span class="material-symbols-outlined">arrow_forward</span>
-      </button>
+      ${rows || (courses.length
+        ? `<div class="empty-note">Ninguna materia tiene fecha todavía.<br>Elegí una materia abajo y asignale la fecha límite.</div>`
+        : `<div class="empty-note">Creá una materia para asignarle su fecha de parcial.</div>`)}
+      ${courses.length ? `
+      <div class="fecha-add">
+        <label class="field-label visually-hidden" for="sel-mat-${sfx}">Materia</label>
+        <select class="input sm" id="sel-mat-${sfx}">${options}</select>
+        <label class="field-label visually-hidden" for="inp-fecha-${sfx}">Fecha límite</label>
+        <input class="input sm" type="date" id="inp-fecha-${sfx}">
+        <button class="btn primary sm" id="btn-fecha-${sfx}">
+          <span class="material-symbols-outlined">event</span>Guardar
+        </button>
+      </div>` : ""}
     </div>`;
   }
 
-  function bindDatesWidget() {
-    const b = document.getElementById("btn-dates-go");
-    if (b) b.addEventListener("click", () => navigate("cursos"));
+  function bindFechasBox(sfx) {
+    const btn = document.getElementById("btn-fecha-" + sfx);
+    if (btn) btn.addEventListener("click", () => {
+      const sel = document.getElementById("sel-mat-" + sfx);
+      const inp = document.getElementById("inp-fecha-" + sfx);
+      if (!sel || !sel.value) return;
+      if (!inp.value) { toast("Elegí una fecha primero."); return; }
+      Quiz.setCourseExamFor(sel.value, inp.value);
+      toast("Fecha guardada.");
+      refreshView();
+    });
+    document.querySelectorAll("[data-fecha-del]").forEach((b) => {
+      b.addEventListener("click", () => {
+        Quiz.setCourseExamFor(b.dataset.fechaDel, "");
+        toast("Fecha eliminada.");
+        refreshView();
+      });
+    });
   }
 
   function studyWidgetHTML() {
@@ -649,10 +710,8 @@
   function renderHomeDates() {
     const wrap = document.getElementById("home-dates");
     if (!wrap) return;
-    const qs = S().questionnaires;
-    const stats = qs.map((qq) => Quiz.statsFor(qq.hash)).filter(Boolean);
-    wrap.innerHTML = datesWidgetHTML(stats);
-    bindDatesWidget();
+    wrap.innerHTML = fechasBoxHTML("home");
+    bindFechasBox("home");
   }
 
   function renderHome() {
@@ -678,8 +737,8 @@
           <div class="col-main">${activeCards || `
             <div class="card center">
               <h2>Nada por acá todavía</h2>
-              <p class="muted">Subí un CSV desde la sección Cursos para crear tu primer cuestionario.</p>
-              <button class="btn primary" id="btn-empty-cursos">Ir a Cursos <span class="material-symbols-outlined">arrow_forward</span></button>
+              <p class="muted">Subí un CSV desde la sección Materias para crear tu primer cuestionario.</p>
+              <button class="btn primary" id="btn-empty-cursos">Ir a Materias <span class="material-symbols-outlined">arrow_forward</span></button>
             </div>`}
           </div>
           <aside class="col-side">
@@ -768,79 +827,99 @@
       </div>`;
   }
 
+  function courseProgressOf(c) {
+    let mastered = 0, total = 0;
+    (c.quizzes || []).forEach((h) => {
+      const st = Quiz.statsFor(h);
+      if (!st) return;
+      total += st.total;
+      mastered += st.mastered;
+    });
+    return { pct: total ? Math.round((mastered / total) * 100) : 0 };
+  }
+
   function courseCardHTML(c, i) {
     const owner = isOwner();
     const nq = (c.quizzes || []).length;
     const nm = (c.material || []).length;
     const nl = (c.links || []).length;
     const tone = toneOf(i);
+    const toneCls = tone === "tone-green" ? "tone-green" : tone === "tone-purple" ? "tone-purple" : "tone-blue";
+    const barCls = `${tone === "tone-green" ? "green" : ""} ${tone === "tone-purple" ? "grad" : ""}`;
+    const pct = nq ? courseProgressOf(c).pct : 0;
+    const status = !nq ? "Sin quizzes" : pct === 0 ? "Sin empezar" : pct < 35 ? "Recién arrancada" : "En progreso";
     return `
-      <div class="exam-card ${tone} course-card">
-        <div class="course-side"><span class="material-symbols-outlined">${EXAM_ICONS[(i + 1) % EXAM_ICONS.length]}</span></div>
-        <div class="exam-card-body">
-          <div class="course-top">
-            <div style="min-width:0">
-              <span class="eyebrow ${tone === "tone-green" ? "tone-green" : tone === "tone-purple" ? "tone-purple" : "tone-blue"}">Curso</span>
-              <h3>${esc(c.name)}${owner ? `
-              <button class="mini-edit" data-rename-course="${c.id}" title="Renombrar curso">
-                <span class="material-symbols-outlined">edit</span>
-              </button>` : ""}</h3>
+      <article class="mat-card ${tone} course-card">
+        <div class="mat-blob" aria-hidden="true"></div>
+        <div class="mat-inner">
+          <div class="mat-thumb"><span class="material-symbols-outlined">${EXAM_ICONS[(i + 1) % EXAM_ICONS.length]}</span></div>
+          <div class="mat-main">
+            <div class="mat-top">
+              <div class="mat-titling">
+                <span class="eyebrow ${toneCls}">${status}</span>
+                <h3>${esc(c.name)}${owner ? `
+                <button class="mini-edit" data-rename-course="${c.id}" title="Renombrar materia">
+                  <span class="material-symbols-outlined">edit</span>
+                </button>` : ""}</h3>
+              </div>
+              <div class="pct-badge ${toneCls}">${pct}%</div>
+            </div>
+            <div class="progress ${barCls}"><span style="width:${pct}%"></span></div>
+            <div class="exam-card-meta">
+              <span><b>${nq}</b> quizzes</span><span>·</span>
+              <span><b>${nm}</b> material</span><span>·</span>
+              <span><b>${nl}</b> links</span>
+            </div>
+            <div class="course-actions">
+              <button class="course-act" data-open-course="${c.id}" data-tab="material">
+                <span class="material-symbols-outlined">folder</span>Material
+              </button>
+              <button class="course-act" data-open-course="${c.id}" data-tab="quizzes">
+                <span class="material-symbols-outlined">quiz</span>Quizzes
+              </button>
+              <button class="course-act" data-open-course="${c.id}" data-tab="links">
+                <span class="material-symbols-outlined">link</span>Links
+              </button>
             </div>
           </div>
-          <div class="exam-card-meta">
-            <span><b>${nq}</b> quizzes</span><span>·</span>
-            <span><b>${nm}</b> material</span><span>·</span>
-            <span><b>${nl}</b> links</span>
-          </div>
-          <div class="course-actions">
-            <button class="course-act" data-open-course="${c.id}" data-tab="material">
-              <span class="material-symbols-outlined">folder</span>Material
-            </button>
-            <button class="course-act" data-open-course="${c.id}" data-tab="quizzes">
-              <span class="material-symbols-outlined">quiz</span>Quizzes
-            </button>
-            <button class="course-act" data-open-course="${c.id}" data-tab="links">
-              <span class="material-symbols-outlined">link</span>Links
-            </button>
-          </div>
         </div>
-      </div>`;
+      </article>`;
   }
 
   function ownerHeadExtra() {
     return isOwner()
-      ? `<button class="btn ghost sm-new" id="btn-new-course"><span class="material-symbols-outlined">add</span>Nuevo curso</button>`
-      : `<span class="mono-label muted lock-note"><span class="material-symbols-outlined">lock</span>solo lectura · entrá con tu cuenta para editar</span>`;
+      ? `<button class="btn ghost sm-new" id="btn-new-course"><span class="material-symbols-outlined">add</span>Nueva materia</button>`
+      : "";
   }
 
   function createCourse() {
-    if (!isOwner()) { toast("Solo la cuenta de Orianna puede crear cursos."); return; }
-    const name = (window.prompt("Nombre del curso:") || "").trim();
+    if (!isOwner()) { toast("Solo la cuenta de Orianna puede crear materias."); return; }
+    const name = (window.prompt("Nombre de la materia:") || "").trim();
     if (!name) return;
     const list = loadCourses();
     list.push({ id: Date.now().toString(36), name, quizzes: [], material: [], links: [] });
     updateCourses(list);
-    toast("Curso creado.");
+    toast("Materia creada.");
   }
 
   function renameCourse(id) {
-    if (!isOwner()) { toast("Solo la cuenta de Orianna puede editar cursos."); return; }
+    if (!isOwner()) { toast("Solo la cuenta de Orianna puede editar materias."); return; }
     const c = findCourse(id);
     if (!c) return;
-    const name = (window.prompt("Nuevo nombre del curso:", c.name) || "").trim();
+    const name = (window.prompt("Nuevo nombre de la materia:", c.name) || "").trim();
     if (!name) return;
     mutateCourse(id, (cc) => { cc.name = name; });
-    toast("Curso renombrado.");
+    toast("Materia renombrada.");
   }
 
   function deleteCourse(id) {
-    if (!isOwner()) { toast("Solo la cuenta de Orianna puede borrar cursos."); return; }
+    if (!isOwner()) { toast("Solo la cuenta de Orianna puede borrar materias."); return; }
     const c = findCourse(id);
     if (!c) return;
-    if (!window.confirm(`¿Eliminar el curso "${c.name}"? Los quizzes no se borran.`)) return;
+    if (!window.confirm(`¿Eliminar la materia "${c.name}"? Los quizzes no se borran.`)) return;
     updateCourses(loadCourses().filter((x) => x.id !== id));
     closeCourseModal();
-    toast("Curso eliminado.");
+    toast("Materia eliminada.");
   }
 
   function mutateCourse(id, fn) {
@@ -940,7 +1019,7 @@
       </div>
       <div class="modal-body">${body}</div>
       <div class="modal-foot">
-        ${owner ? `<button class="btn ghost danger" id="m-del"><span class="material-symbols-outlined">delete</span>Eliminar curso</button>`
+        ${owner ? `<button class="btn ghost danger" id="m-del"><span class="material-symbols-outlined">delete</span>Eliminar materia</button>`
                 : `<span class="mono-label muted">solo lectura</span>`}
         <button class="btn ghost" id="m-close2">Cerrar</button>
       </div>
@@ -994,67 +1073,11 @@
         });
         nameEl.value = "";
         urlEl.value = "";
-        toast("Agregado al curso.");
+        toast("Agregado a la materia.");
       };
     }
   }
 
-  function paintMateriales() {
-    const list = document.getElementById("mat-list");
-    if (!list) return;
-    const M = window.Materiales;
-    const items = M ? M.items() : [];
-    list.innerHTML = items.map((m) => `
-      <span class="mat-item">
-        <a class="mat-btn" href="${esc(m.url)}" target="_blank" rel="noopener noreferrer">
-          <span class="material-symbols-outlined">${/\.pdf($|\?)/i.test(m.url) ? "picture_as_pdf" : "link"}</span>${esc(m.nombre)}
-        </a>
-        ${isOwner() ? `<button class="mini-edit del mat-del" data-mat-del="${m.id}" title="Eliminar material">
-          <span class="material-symbols-outlined">close</span>
-        </button>` : ""}
-      </span>`).join("");
-    const empty = document.getElementById("mat-empty");
-    if (empty) empty.hidden = items.length > 0;
-    list.querySelectorAll("[data-mat-del]").forEach((b) => {
-      b.onclick = () => {
-        window.Materiales.remove(b.dataset.matDel)
-          .then(() => { toast("Material eliminado."); return window.Materiales.refresh(); })
-          .catch(() => toast("No se pudo eliminar (revisá las reglas de Firestore)."));
-      };
-    });
-  }
-
-  function bindMateriales() {
-    const M = window.Materiales;
-    const form = document.getElementById("mat-form");
-    const admin = isOwner();
-    if (form) form.style.display = admin ? "block" : "none";
-    if (M && !window.__matSubscribed) {
-      M.subscribe(() => paintMateriales());
-      window.__matSubscribed = true;
-    }
-    if (!M) return;
-    if (M.isLoaded()) paintMateriales();
-    else M.fetchAll();
-    if (form && admin && !form.dataset.bound) {
-      form.dataset.bound = "1";
-      const nameEl = form.querySelector("[name=matname]");
-      const urlEl = form.querySelector("[name=maturl]");
-      form.addEventListener("submit", (e) => {
-        e.preventDefault();
-        const url = M.safeUrl(urlEl.value);
-        if (!url) { toast("El link tiene que empezar con http:// o https://"); return; }
-        M.add(nameEl.value, url).then(() => {
-          nameEl.value = "";
-          urlEl.value = "";
-          toast("Material publicado.");
-          return M.refresh();
-        }).catch((err) => {
-          toast("No se pudo publicar: " + (err && err.message ? err.message : "error"));
-        });
-      });
-    }
-  }
 
   function renderCursos() {
     const qs = S().questionnaires;
@@ -1073,23 +1096,23 @@
     if (!courses.length) {
       coursesGrid = qs.map(cardOf).join("") || `
         <div class="card center">
-          <h2>Todavía no hay cursos</h2>
-          <p class="muted">Creá uno con el botón de arriba o subí un CSV abajo.</p>
+          <h2>Todavía no hay materias</h2>
+          <p class="muted">Creá una con el botón de arriba o subí un CSV abajo.</p>
         </div>`;
-      headSub = "Cada CSV carga como un cuestionario listo para practicar";
+      headSub = "";
     } else {
       const assigned = new Set();
       courses.forEach((cc) => (cc.quizzes || []).forEach((h) => assigned.add(h)));
       coursesGrid = courses.map(courseCardHTML).join("") || `
-        <div class="card center"><h2>Sin cursos</h2><p class="muted">Creá uno con el botón de arriba.</p></div>`;
+        <div class="card center"><h2>Sin materias</h2><p class="muted">Creá una con el botón de arriba.</p></div>`;
       const freeCards = qs.filter((qq) => !assigned.has(qq.hash)).map(cardOf).join("");
       freeSection = freeCards ? `
       <section class="home-section">
         <div class="sec-head">
           <span class="material-symbols-outlined">select_all</span>
           <div>
-            <h2>Quizzes sin curso</h2>
-            <p class="muted small sub">Asignalos desde el botón Quizzes de cada curso</p>
+            <h2>Quizzes sin materia</h2>
+            <p class="muted small sub">Asignalos desde el botón Quizzes de cada materia</p>
           </div>
         </div>
         <div class="exam-grid">${freeCards}</div>
@@ -1102,8 +1125,8 @@
         <div class="sec-head">
           <span class="material-symbols-outlined">auto_stories</span>
           <div>
-            <h2>Mis cursos</h2>
-            <p class="muted small sub">${headSub}</p>
+            <h2>Mis materias</h2>
+            ${headSub ? `<p class="muted small sub">${headSub}</p>` : ""}
           </div>
           ${ownerHeadExtra()}
         </div>
@@ -1111,41 +1134,20 @@
       </section>
       <section class="home-section">
         <div class="sec-head">
-          <span class="material-symbols-outlined">folder_shared</span>
+          <span class="material-symbols-outlined">event</span>
           <div>
-            <h2>Material de las materias</h2>
-            <p class="muted small sub">Links públicos — visibles para todos los visitantes</p>
+            <h2>Fechas de parciales</h2>
+            <p class="muted small sub">Elegí la materia y fijale la fecha límite — corta la planificación de repasos</p>
           </div>
         </div>
-        <div class="card">
-          <div class="mat-grid" id="mat-list"></div>
-          <p class="muted small" id="mat-empty">Todavía no hay material publicado.</p>
-          <form id="mat-form" style="display:none">
-            <label class="field-label visually-hidden" for="matname">Nombre de materia</label>
-            <input class="input sm" id="matname" name="matname" placeholder="Nombre de la materia" required>
-            <label class="field-label visually-hidden" for="maturl">Link</label>
-            <input class="input sm" id="maturl" name="maturl" placeholder="https://…" required>
-            <button class="btn primary mat-add-btn" type="submit"><span class="material-symbols-outlined">add</span>Nuevo material</button>
-          </form>
-        </div>
+        <div id="fechas-cursos"></div>
       </section>
       ${freeSection}
-      ${qs.length ? `
-      <section class="home-section">
-        <div class="sec-head">
-          <span class="material-symbols-outlined">tune</span>
-          <div>
-            <h2>Gestión</h2>
-            <p class="muted small sub">Fecha de parcial, calendario y progreso por cuestionario</p>
-          </div>
-        </div>
-        ${qs.map((qq) => { const st = statOf(qq.hash); return st ? manageCardHTML(qq, st) : ""; }).join("")}
-      </section>` : ""}
       <section class="home-section">
         <div class="card">
           <h2>Agregar cuestionario</h2>
           <div class="dropzone compact" id="dropzone2">
-            <div>Arrastrá otro CSV acá o hacé clic para elegirlo — se suma como un curso nuevo</div>
+            <div>Arrastrá el CSV acá o hacé clic para elegirlo — después elegís a qué materia pertenece</div>
           </div>
           <input type="file" id="file2" accept=".csv,text/csv,text/plain" hidden>
         </div>
@@ -1164,8 +1166,11 @@
       if (document.getElementById("btn-start-" + qq.hash)) bindExamCard(qq.hash, qq);
     });
     bindUpload("dropzone2", "file2");
-    bindManageCards(qs);
-    bindMateriales();
+    const fc = document.getElementById("fechas-cursos");
+    if (fc) {
+      fc.innerHTML = fechasBoxHTML("cur");
+      bindFechasBox("cur");
+    }
   }
 
   function weekPlanData() {
@@ -1293,74 +1298,7 @@
   RENDERERS.cursos = renderCursos;
   RENDERERS.progreso = renderProgreso;
 
-  let calYear = 0, calMonth = -1;
-  const MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
-  const DAY_LETTERS = ["L", "M", "X", "J", "V", "S", "D"];
   const isoOf = (y, m, d) => new Date(y, m, d, 12).toISOString().slice(0, 10);
-  const fmtIso = (iso) => {
-    const [y, m, d] = iso.split("-");
-    return `${d}/${m}`;
-  };
-
-  function calNow() {
-    if (calYear === 0) {
-      const t = new Date();
-      calYear = t.getFullYear();
-      calMonth = t.getMonth();
-    }
-  }
-
-  const calLabel = () => { calNow(); return `${MONTHS[calMonth]} ${calYear}`; };
-
-  function renderCalFor(hash) {
-    const sec = document.getElementById("sec-" + hash);
-    if (!sec) return;
-    const grid = sec.querySelector(".cal-grid");
-    const label = sec.querySelector(".cal-label");
-    const list = sec.querySelector(".cal-list");
-    if (!grid) return;
-    label.textContent = calLabel();
-    const by = Quiz.scheduledByDayFor(hash);
-    const examIso = Quiz.examDateFor(hash);
-    const first = new Date(calYear, calMonth, 1);
-    const offset = (first.getDay() + 6) % 7;
-    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-    const nw = new Date();
-    const todayIso = isoOf(nw.getFullYear(), nw.getMonth(), nw.getDate());
-    let cells = DAY_LETTERS.map((l) => `<div class="cal-head">${l}</div>`).join("");
-    for (let i = 0; i < offset; i++) cells += `<div class="cal-day empty"></div>`;
-    for (let d = 1; d <= daysInMonth; d++) {
-      const iso = isoOf(calYear, calMonth, d);
-      const n = (by[iso] || []).length;
-      const exam = iso === examIso;
-      const cls = [iso === todayIso ? "today" : "", n ? "has-plan" : "", exam ? "cal-exam" : ""].join(" ");
-      cells += `<div class="cal-day ${cls}" data-iso="${iso}" ${n ? `title="${n} pregunta${n === 1 ? "" : "s"}"` : ""}>
-        <span class="cal-day-num">${d}</span>
-        ${n ? `<span class="cal-pill">${n}</span>` : ""}
-        ${exam ? `<span class="cal-dot" title="Parcial"></span>` : ""}
-      </div>`;
-    }
-    grid.innerHTML = cells;
-    grid.querySelectorAll(".cal-day.has-plan").forEach((cell) => {
-      cell.addEventListener("click", () => {
-        sec.querySelectorAll(".cal-day.selected").forEach((c) => c.classList.remove("selected"));
-        cell.classList.add("selected");
-        const qs = Quiz.questionsOnDayFor(hash, cell.dataset.iso);
-        list.innerHTML = `
-          <div class="cal-list-title">${fmtIso(cell.dataset.iso)} — ${qs.length} pregunta${qs.length === 1 ? "" : "s"}</div>
-          ${qs.length ? qs.map((q, i) => `
-            <div class="cal-list-item">
-              <span class="cal-item-num">${i + 1}</span>
-              <span class="cal-item-text">${esc(q.text)}</span>
-            </div>`).join("")
-            : `<div class="muted small">Sin preguntas planificadas para ese día.</div>`}`;
-      });
-    });
-  }
-
-  function renderAllCals() {
-    S().questionnaires.forEach((q) => renderCalFor(q.hash));
-  }
 
   function renderQuiz() {
     const items = S().items;

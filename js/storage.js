@@ -73,6 +73,9 @@ const QuizStore = (() => {
   function loadCourses() { return get("quiz.courses", []); }
   function saveCourses(c) { set("quiz.courses", Array.isArray(c) ? c : []); }
 
+  function loadCourseExams() { return get("quiz.courseexams", {}); }
+  function saveCourseExams(m) { set("quiz.courseexams", m && typeof m === "object" ? m : {}); }
+
   function snapshot() {
     const kv = {}, times = {};
     try {
@@ -104,7 +107,7 @@ const QuizStore = (() => {
     hash, loadProgress, saveProgress, resetProgress,
     loadSettings, saveSettings, loadDraft, saveDraft, clearDraft,
     loadLastCsv, saveLastCsv, loadExamDates, saveExamDates,
-    loadCourses, saveCourses,
+    loadCourses, saveCourses, loadCourseExams, saveCourseExams,
     snapshot, restore, onChange
   };
 })();

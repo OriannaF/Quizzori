@@ -141,8 +141,8 @@ const PROMPT = () => promptReply;
   await new Promise((r) => setTimeout(r, 300));
   wb.document.querySelector('#main-nav [data-view="cursos"]').dispatchEvent(new wb.MouseEvent("click", { bubbles: true }));
   await new Promise((r) => setTimeout(r, 50));
-  log("anon hides Nuevo curso", !wb.document.querySelector("#btn-new-course") ? "OK" : "FAIL");
-  log("anon sees lock note", !!wb.document.querySelector(".lock-note") ? "OK" : "FAIL");
+  log("anon hides Nueva materia", !wb.document.querySelector("#btn-new-course") ? "OK" : "FAIL");
+  log("anon hides lock note", !wb.document.querySelector(".sec-head .lock-note") ? "OK" : "FAIL");
 
   const errsB = B.errors.filter(e => !/not implemented|Could not load|css/i.test(e));
   log("anon runtime errors", errsB.length ? "\n  " + errsB.join("\n  ") : "none");

@@ -18,7 +18,8 @@ const Quiz = (() => {
     answers: {},
     results: null,
     sourceText: "",
-    warnings: []
+    warnings: [],
+    materiaCut: ""
   };
 
   function scoreQuestion(q, checkedOrig) {
@@ -58,6 +59,26 @@ const Quiz = (() => {
 
   const validDate = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(new Date(v + "T00:00:00").getTime()) ? v : "";
 
+  // Fecha límite efectiva de un cuestionario: la más temprana entre las
+  // materias que lo contienen. Devuelve "" si ninguna materia tiene fecha.
+  function materiaCutoffFor(hash) {
+    let cut = "";
+    try {
+      const courses = Store.loadCourses() || [];
+      const exams = Store.loadCourseExams() || {};
+      for (const c of courses) {
+        if (!c || !Array.isArray(c.quizzes) || c.quizzes.indexOf(hash) === -1) continue;
+        const d = validDate(exams[c.id]);
+        if (d && (!cut || d < cut)) cut = d;
+      }
+    } catch (e) {}
+    return cut;
+  }
+
+  function refreshMateriaCut() {
+    S.materiaCut = materiaCutoffFor(S.currentHash || S.hash);
+  }
+
   function loadExamDates() {
     const hash = S.currentHash || S.hash;
     const saved = Store.loadExamDates(hash);
@@ -79,6 +100,7 @@ const Quiz = (() => {
         mode: S.settings.mode
       });
     }
+    refreshMateriaCut();
   }
 
   function saveExamDates() {
@@ -90,6 +112,7 @@ const Quiz = (() => {
   const catDate = (cat) => {
     const c = S.examDates.cats[cat];
     if (c) return c;
+    if (S.materiaCut) return S.materiaCut;
     return quizDate();
   };
 
@@ -421,6 +444,32 @@ const Quiz = (() => {
     }
   }
 
+  function courseExamsMap() {
+    const raw = Store.loadCourseExams();
+    const out = {};
+    if (raw && typeof raw === "object") {
+      for (const k of Object.keys(raw)) {
+        const d = validDate(raw[k]);
+        if (d) out[k] = d;
+      }
+    }
+    return out;
+  }
+
+  function courseExamFor(id) {
+    return courseExamsMap()[id] || "";
+  }
+
+  function setCourseExamFor(id, iso) {
+    if (!id) return;
+    const map = Store.loadCourseExams() || {};
+    const d = validDate(iso);
+    if (d) map[id] = d;
+    else delete map[id];
+    Store.saveCourseExams(map);
+    refreshMateriaCut();
+  }
+
   function statsFor(hash) {
     const q = S.questionnaires.find(x => x.hash === hash);
     if (!q) return null;
@@ -480,7 +529,8 @@ const Quiz = (() => {
     persistSettings, setSize, setPoints, setMode, setExamDate, setCatExamDate, quizDate, catDate,
     stats, failedCount, todayCount, newCount, scheduledByDay, questionsOnDay, scoreQuestion,
     selectQuestionnaire, examDateFor, setExamDateFor, statsFor, draftOf, resetProgressFor,
-    scheduledByDayFor, questionsOnDayFor
+    scheduledByDayFor, questionsOnDayFor,
+    materiaCutoffFor, courseExamsMap, courseExamFor, setCourseExamFor
   };
 })();
 
