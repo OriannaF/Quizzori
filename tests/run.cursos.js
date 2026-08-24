@@ -59,14 +59,15 @@ const PROMPT = () => promptReply;
 
   click($("#btn-new-course"));
   await new Promise((r) => setTimeout(r, 50));
-  const stored0 = w.QuizStore.loadCourses();
-  log("course created", stored0.length === 1 && stored0[0].name === promptReply ? "OK" : JSON.stringify(stored0));
-  log("empty materia hidden", !$(".course-card") ? "OK" : "FAIL");
-
-  stored0[0].quizzes = [w.Quiz.S.questionnaires[0].hash];
-  w.QuizStore.saveCourses(stored0);
-  $('#main-nav [data-view="cursos"]').dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  log("create modal opens", !!$("#cr-name") ? "OK" : "FAIL");
+  $("#cr-name").value = promptReply;
+  click($("#cr-create"));
   await new Promise((r) => setTimeout(r, 50));
+  const courseCard = $(".course-card h3");
+  log("course created", courseCard && courseCard.textContent.includes(promptReply) ? "OK" : "FAIL");
+
+  const stored0 = w.QuizStore.loadCourses();
+  log("persisted to store", stored0.length === 1 && stored0[0].name === promptReply ? "OK" : JSON.stringify(stored0));
 
   const quizBtn = $('[data-open-course][data-tab="quizzes"]');
   click(quizBtn);

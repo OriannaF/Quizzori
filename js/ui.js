@@ -639,7 +639,7 @@
 
 
   function fechasBoxHTML(sfx) {
-    const courses = loadCourses().filter((c) => Array.isArray(c.quizzes) && c.quizzes.length);
+    const courses = loadCourses();
     const exams = Quiz.courseExamsMap();
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const rows = courses
@@ -923,12 +923,66 @@
 
   function createCourse() {
     if (!isOwner()) { toast("Solo la cuenta admin puede crear materias."); return; }
-    const name = (window.prompt("Nombre de la materia:") || "").trim();
-    if (!name) return;
-    const list = loadCourses();
-    list.push({ id: Date.now().toString(36), name, quizzes: [], material: [], links: [] });
-    updateCourses(list);
-    toast("Materia creada. Va a aparecer cuando le asignes su primer cuestionario.");
+    openCreateMateria();
+  }
+
+  function closeCreateMateria() {
+    const ov = document.getElementById("create-overlay");
+    if (ov) ov.remove();
+  }
+
+  function openCreateMateria() {
+    let ov = document.getElementById("create-overlay");
+    if (!ov) {
+      ov = document.createElement("div");
+      ov.id = "create-overlay";
+      ov.className = "modal-overlay";
+      ov.addEventListener("click", (e) => { if (e.target === ov) closeCreateMateria(); });
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeCreateMateria(); });
+      document.body.appendChild(ov);
+    }
+    const qs = S().questionnaires;
+    ov.innerHTML = `
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <span class="material-symbols-outlined accent-ic">add_circle</span>
+        <h3>Nueva materia</h3>
+        <button class="mini-edit" id="cr-close" title="Cerrar"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="modal-body">
+        <label class="field-label" for="cr-name">Nombre de la materia</label>
+        <input class="input" id="cr-name" placeholder="Ej: Análisis de Sistemas">
+        <p class="field-label">Quizzes que van a vivir acá</p>
+        ${qs.map((qq) => `
+        <div class="assign-row">
+          <label class="check-line">
+            <input type="checkbox" data-cr-qz="${qq.hash}">
+            <span>${esc(qq.name)}</span>
+          </label>
+        </div>`).join("") || `<p class="muted small">Todavía no hay cuestionarios cargados.</p>`}
+      </div>
+      <div class="modal-foot">
+        <button class="btn ghost" id="cr-cancel">Cancelar</button>
+        <button class="btn primary" id="cr-create"><span class="material-symbols-outlined">add</span>Crear materia</button>
+      </div>
+    </div>`;
+    const nm = ov.querySelector("#cr-name");
+    const doCreate = () => {
+      const name = (nm.value || "").trim();
+      if (!name) { toast("Ponele un nombre a la materia."); nm.focus(); return; }
+      const hashes = [];
+      ov.querySelectorAll("[data-cr-qz]:checked").forEach((cb) => hashes.push(cb.dataset.crQz));
+      const list = loadCourses();
+      list.push({ id: Date.now().toString(36), name, quizzes: hashes, material: [], links: [] });
+      updateCourses(list);
+      closeCreateMateria();
+      toast(`Materia "${name}" creada.`);
+    };
+    ov.querySelector("#cr-create").onclick = doCreate;
+    ov.querySelector("#cr-cancel").onclick = closeCreateMateria;
+    ov.querySelector("#cr-close").onclick = closeCreateMateria;
+    nm.addEventListener("keydown", (e) => { if (e.key === "Enter") doCreate(); });
+    setTimeout(() => { try { nm.focus(); } catch (err) {} }, 0);
   }
 
   function renameCourse(id) {
@@ -1111,8 +1165,7 @@
   function renderCursos() {
     const qs = S().questionnaires;
     const stats = qs.map((qq) => Quiz.statsFor(qq.hash)).filter(Boolean);
-    const allCourses = loadCourses();
-    const courses = allCourses.filter((c) => Array.isArray(c.quizzes) && c.quizzes.length);
+    const courses = loadCourses();
     const statOf = (hash) => stats.find((s) => s.hash === hash);
     const cardOf = (qq, i) => {
       const st = statOf(qq.hash);
@@ -1126,13 +1179,13 @@
     if (!courses.length) {
       coursesGrid = qs.map(cardOf).join("") || `
         <div class="card center">
-          <h2>${allCourses.length ? "Ninguna materia tiene quizzes todavía" : "Todavía no hay materias"}</h2>
-          <p class="muted">${allCourses.length ? "Subí un CSV abajo y asignalo a una materia para verla acá." : "Creá una con el botón de arriba o subí un CSV abajo."}</p>
+          <h2>Todavía no hay materias</h2>
+          <p class="muted">Creá una con el botón de arriba o subí un CSV abajo.</p>
         </div>`;
       headSub = "";
     } else {
       const assigned = new Set();
-      allCourses.forEach((cc) => (cc.quizzes || []).forEach((h) => assigned.add(h)));
+      courses.forEach((cc) => (cc.quizzes || []).forEach((h) => assigned.add(h)));
       coursesGrid = courses.map(courseCardHTML).join("") || `
         <div class="card center"><h2>Sin materias</h2><p class="muted">Creá una con el botón de arriba.</p></div>`;
       const freeCards = qs.filter((qq) => !assigned.has(qq.hash)).map(cardOf).join("");
