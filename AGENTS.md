@@ -23,8 +23,7 @@ No hay framework ni bundler: lo que está en `js/` va directo al browser.
 | `js/storage.js` (`QuizStore`) | localStorage + snapshot/restore para sync. Claves `quiz.*`. Exporta también para Node (`module.exports`). |
 | `js/scheduler.js` | Repetición espaciada: qué toca repasar hoy |
 | `js/quiz.js` (`Quiz`) | Estado y lógica de sesión: modos, respuestas, submit, drafts |
-| `js/cloud.js` (`Cloud`) | Firebase Auth (Google) + Firestore sync del progreso (`/users/{uid}`) + colección pública `materiales`. Config dentro del archivo. |
-| `js/materiales.js` (`Materiales`) | Material público: lee colección Firestore `materiales`, alta/baja solo admin |
+| `js/cloud.js` (`Cloud`) | Firebase Auth (Google) + Firestore sync del progreso (`/users/{uid}`) + colección pública `courses` (materias visibles para todos, escritura solo admin). Config dentro del archivo. |
 | `js/ui.js` (`UI`) | TODO el render y routing de vistas: `inicio`, `cursos`, `progreso`, quiz, resultados, calendario, pomodoro, cloud UI |
 
 Datos: `data/*.csv` — un CSV = un cuestionario ("Final ADS" 278 preguntas, "Borboleto" 105).
@@ -49,8 +48,8 @@ Datos: `data/*.csv` — un CSV = un cuestionario ("Final ADS" 278 preguntas, "Bo
 ## Permisos / roles
 
 - **Admin**: `oriannafernandezdelrosario@gmail.com` — edita cursos (material/quizzes/links
-  por curso, guardados en `quiz.courses`) y publica material público (colección
-  Firestore `materiales`). Reglas en Firebase: read público en `/materiales`,
+  por curso, guardados en `quiz.courses`) y los publica a la colección pública
+  Firestore `courses` (doc `all`). Reglas en Firebase: read público en `/courses`,
   write solo admin email; `/users/{uid}` solo su dueño.
 - **Visitantes**: ven todo, practican y guardan progreso localmente; si inician
   sesión con Google, su progreso se sincroniza.

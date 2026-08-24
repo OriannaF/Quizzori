@@ -362,6 +362,7 @@
     bindNav();
     initPomodoro();
     initCloudUI();
+    refreshCoursesFromCloud();
     loadSource().then((r) => {
       if (r.loaded) {
         warningsDismissed = false;
@@ -788,8 +789,35 @@
     } catch (e) { return []; }
   }
 
+  let coursesPushTimer = null;
+
+  function schedulePublish() {
+    if (!isOwner()) return;
+    const C = window.Cloud;
+    if (!C || typeof C.publishCourses !== "function") return;
+    if (coursesPushTimer) clearTimeout(coursesPushTimer);
+    coursesPushTimer = setTimeout(() => {
+      coursesPushTimer = null;
+      C.publishCourses(window.QuizStore.loadCourses()).catch(() => {
+        toast("No se pudieron publicar las materias (revisá tu conexión).");
+      });
+    }, 900);
+  }
+
+  function refreshCoursesFromCloud() {
+    const C = window.Cloud;
+    if (!C || typeof C.fetchPublicCourses !== "function" || !C.isConfigured()) return;
+    C.fetchPublicCourses().then((list) => {
+      if (!Array.isArray(list)) return;
+      try { localStorage.setItem("quiz.courses", JSON.stringify(list)); } catch (e) { return; }
+      if (currentView === "cursos" || currentView === "inicio") refreshView();
+      if (openCourseId) renderCourseModal();
+    }).catch(() => {});
+  }
+
   function updateCourses(list) {
     window.QuizStore.saveCourses(list);
+    schedulePublish();
     if (currentView === "cursos") renderCursos();
     if (openCourseId) renderCourseModal();
   }

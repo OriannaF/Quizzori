@@ -7,7 +7,7 @@ let html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8")
   .replace(/<script src="([^"]+)"><\/script>/g, (m, src) => {
     const code = fs.readFileSync(path.join(ROOT, src.split("?")[0]), "utf8");
     if (src.indexOf("cloud.js") !== -1) {
-      return `<script>${code}\n</script><script>window.Cloud={isConfigured:()=>true,user:()=>({uid:"u1",name:"Orianna Fernandez",email:"oriannafernandezdelrosario@gmail.com"}),isAdmin:()=>true,onChange(){},init(){},signIn(){return Promise.resolve()},signOut(){return Promise.resolve()}};</script>`;
+      return `<script>${code}\n</script><script>window.Cloud={isConfigured:()=>true,user:()=>({uid:"u1",name:"Orianna Fernandez",email:"oriannafernandezdelrosario@gmail.com"}),isAdmin:()=>true,onChange(){},init(){},signIn(){return Promise.resolve()},signOut(){return Promise.resolve()},fetchPublicCourses:()=>Promise.resolve(null),publishCourses:()=>Promise.resolve()};</script>`;
     }
     return `<script>${code}\n</script>`;
   })
@@ -139,7 +139,9 @@ const PROMPT = () => promptReply;
   A.dom.window.close();
 
   // ---------- NON-OWNER ----------
-  html = html.replace('name:"Orianna Fernandez"', 'name:"Someone Else"').replace('isAdmin:()=>true', 'isAdmin:()=>false');
+  html = html.replace('name:"Orianna Fernandez"', 'name:"Someone Else"').replace('isAdmin:()=>true', 'isAdmin:()=>false')
+    .replace('fetchPublicCourses:()=>Promise.resolve(null)',
+      'fetchPublicCourses:()=>Promise.resolve([{id:"pub1",name:"Materia Publicada",quizzes:[],material:[],links:[]}])');
   const B = boot();
   const wb = B.dom.window;
   await new Promise((r) => setTimeout(r, 300));
@@ -147,6 +149,9 @@ const PROMPT = () => promptReply;
   await new Promise((r) => setTimeout(r, 50));
   log("anon hides Nueva materia", !wb.document.querySelector("#btn-new-course") ? "OK" : "FAIL");
   log("anon hides lock note", !wb.document.querySelector(".sec-head .lock-note") ? "OK" : "FAIL");
+  await new Promise((r) => setTimeout(r, 200));
+  const anonCard = wb.document.querySelector(".course-card h3");
+  log("anon sees published materia", anonCard && anonCard.textContent.includes("Materia Publicada") ? "OK" : "FAIL");
 
   const errsB = B.errors.filter(e => !/not implemented|Could not load|css/i.test(e));
   log("anon runtime errors", errsB.length ? "\n  " + errsB.join("\n  ") : "none");

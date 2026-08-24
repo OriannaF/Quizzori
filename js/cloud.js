@@ -11,6 +11,11 @@
  *      rules_version = '2';
  *      service cloud.firestore {
  *        match /databases/{database}/documents {
+ *          match /courses/{doc} {
+ *            allow read: if true;
+ *            allow write: if request.auth != null &&
+ *              request.auth.token.email in ['oriannafernandezdelrosario@gmail.com'];
+ *          }
  *          match /users/{uid} {
  *            allow read, write: if request.auth != null && request.auth.uid == uid;
  *          }
@@ -186,6 +191,21 @@
       });
     }
 
+    function fetchPublicCourses() {
+      return ensureDb().then(async (db) => {
+        const doc = await db.collection("courses").doc("all").get();
+        if (!doc.exists) return null;
+        const list = (doc.data() || {}).list;
+        return Array.isArray(list) ? list : null;
+      });
+    }
+
+    function publishCourses(list) {
+      const arr = Array.isArray(list) ? list : [];
+      return ensureDb().then((db) =>
+        db.collection("courses").doc("all").set({ list: arr, updatedAt: Date.now() }));
+    }
+
     function signOut() {
       if (!fb) return Promise.resolve();
       return fb.auth().signOut().catch(() => {});
@@ -212,6 +232,7 @@
       isConfigured, init, signIn, signOut,
       user: () => user,
       isAdmin, ensureDb,
+      fetchPublicCourses, publishCourses,
       onChange: (fn) => { if (typeof fn === "function") cbs.push(fn); }
     };
   })();
