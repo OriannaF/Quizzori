@@ -935,24 +935,65 @@
     </section>`;
   }
 
+  function evalDateOf(s) {
+    const ms = String(s).match(/\d{2}\/\d{2}\/\d{4}/g);
+    if (!ms) return null;
+    const p = ms[ms.length - 1].split("/");
+    return new Date(+p[2], +p[1] - 1, +p[0]);
+  }
+
+  function evalTone(tipo) {
+    return /recup/i.test(tipo) ? "t-recu" : /final/i.test(tipo) ? "t-final" : /\btpi\b/i.test(tipo) ? "t-tpi" : "t-parcial";
+  }
+
+  function nextEvalsHTML() {
+    if (!isOwner()) return "";
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const rows = AGENDA
+      .map((x) => ({ x, d: evalDateOf(x.fecha) }))
+      .filter((r) => r.d && !isNaN(r.d.getTime()))
+      .filter((r) => { r.days = Math.round((r.d - today) / 86400000); return r.days >= 0; })
+      .sort((a, b) => a.d - b.d)
+      .slice(0, 3);
+    if (!rows.length) {
+      return `
+      <div class="widget">
+        <div class="widget-head"><h3>Próximas evaluaciones</h3><span class="material-symbols-outlined">event_upcoming</span></div>
+        <div class="empty-note">Nada en el calendario.</div>
+      </div>`;
+    }
+    const items = rows.map(({ x, days }) => {
+      const short = String(x.fecha).replace(/\/\d{4}/g, "");
+      return `
+      <div class="ne-row${days <= 7 ? " soon" : ""}">
+        <div class="ne-info">
+          <span class="ne-mat">${esc(x.mat)}</span>
+          <span class="ev-tag ${evalTone(x.tipo)}">${esc(x.tipo)}</span>
+        </div>
+        <div class="ne-meta">
+          <span class="ne-date mono-label">${esc(short)}</span>
+          <span class="ne-days"><b>${days}</b>${days === 1 ? "día" : "días"}</span>
+        </div>
+      </div>`;
+    }).join("");
+    return `
+    <div class="widget">
+      <div class="widget-head"><h3>Próximas evaluaciones</h3><span class="material-symbols-outlined">event_upcoming</span></div>
+      <div class="next-evals">${items}</div>
+    </div>`;
+  }
+
   function agendaHTML() {
     if (!isOwner()) return "";
     const today = new Date(); today.setHours(0, 0, 0, 0);
-    const lastDateOf = (s) => {
-      const ms = String(s).match(/\d{2}\/\d{2}\/\d{4}/g);
-      if (!ms) return null;
-      const p = ms[ms.length - 1].split("/");
-      return new Date(+p[2], +p[1] - 1, +p[0]);
-    };
-    const toneCls = (t) => /recup/i.test(t) ? "t-recu" : /final/i.test(t) ? "t-final" : /\btpi\b/i.test(t) ? "t-tpi" : "t-parcial";
     const rows = AGENDA.map((x) => {
-      const d = lastDateOf(x.fecha);
+      const d = evalDateOf(x.fecha);
       const past = d ? d < today : false;
       return `
       <div class="eval-row${past ? " past" : ""}">
         <span class="ev-mat">${esc(x.mat)}</span>
         <span class="ev-desc">${x.desc ? esc(x.desc) : "—"}</span>
-        <span class="ev-tag ${toneCls(x.tipo)}">${esc(x.tipo)}</span>
+        <span class="ev-tag ${evalTone(x.tipo)}">${esc(x.tipo)}</span>
         <span class="ev-date">${esc(x.fecha)}</span>
       </div>`;
     }).join("");
@@ -1107,6 +1148,7 @@
                 <span class="mono-label muted fc-cap" id="pf-cap">0/4 POMODOROS COMPLETADOS</span>
               </section>
             </div>
+            ${nextEvalsHTML()}
           </aside>
         </div>
         <div class="home-bottom">
