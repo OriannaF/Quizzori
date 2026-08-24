@@ -762,12 +762,12 @@
           </div>
         </div>
         <div class="layout">
-          <div class="col-main">${activeCards || `
+          <div class="col-main"><div class="exam-grid cols-2">${activeCards || `
             <div class="card center">
               <h2>Nada por acá todavía</h2>
               <p class="muted">Subí un CSV desde la sección Materias para crear tu primer cuestionario.</p>
               <button class="btn primary" id="btn-empty-cursos">Ir a Materias <span class="material-symbols-outlined">arrow_forward</span></button>
-            </div>`}
+            </div>`}</div>
           </div>
           <aside class="col-side">
             ${studyWidgetHTML()}
