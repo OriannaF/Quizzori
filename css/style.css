@@ -1074,6 +1074,9 @@ details[open] .summary-chev { transform: rotate(180deg); }
   color: var(--muted);
 }
 .slot-select { flex: 1; min-width: 0; }
+.slot-labeled { flex-direction: column; align-items: stretch; gap: 6px; }
+.slot-head { display: flex; align-items: baseline; gap: 10px; }
+.slot-lab { flex: 1; line-height: 1.45; }
 .fill-input { max-width: 520px; width: 100%; }
 .opt.checked { border-color: var(--accent); background: var(--ring); }
 .opt.checked .alpha { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }

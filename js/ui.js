@@ -1455,8 +1455,8 @@
       const body = q.type === "dropdown"
         ? (() => {
           const chosen = S().answers[q.id] || {};
-          const rows = q.slots.map((txt, si) => `<label class="slot">
-            <span class="slot-num">${si + 1}</span>
+          const rows = q.slots.map((txt, si) => `<label class="slot ${q.slotLabels ? "slot-labeled" : ""}">
+            <span class="slot-head"><span class="slot-num">${si + 1}</span>${q.slotLabels ? `<span class="slot-lab">${esc(txt)}</span>` : ""}</span>
             <select class="input slot-select" data-q="${q.id}" data-slot="${si}">
               <option value="">Elegí una opción…</option>
               ${q.dropdown.map((opt, j) => `<option value="${j}" ${j === chosen[si] ? "selected" : ""}>${esc(opt)}</option>`).join("")}

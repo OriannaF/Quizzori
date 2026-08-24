@@ -19,7 +19,7 @@ No hay framework ni bundler: lo que está en `js/` va directo al browser.
 |---|---|
 | `index.html` | Shell único: sidebar + topbar constante + `<main id="app">`. Router client-side por vistas, no hay rutas URL. |
 | `css/style.css` | Sistema "Dark Fidelity" completo (tokens al inicio, tema claro vía overrides en `html.light`). |
-| `js/csv.js` | Parseo de CSV de preguntas → `questionnaires` |
+| `js/csv.js` | Parseo de CSV de preguntas → `questionnaires`. Tipos: select (columnas de opciones + índices), completar (sin opciones), dropdown (`opciones` + `respuestaN`) y relacione (`correctas` con textos `;`-separados en el orden de las afirmaciones: las afirmaciones son las demás celdas con texto de la fila y el menú se arma con esa lista; alternativa legada: pares `a=b` posicionales sobre las celdas, puede desbordar columnas sin encabezado) |
 | `js/storage.js` (`QuizStore`) | localStorage + snapshot/restore para sync. Claves `quiz.*`. Exporta también para Node (`module.exports`). |
 | `js/scheduler.js` | Repetición espaciada: qué toca repasar hoy |
 | `js/quiz.js` (`Quiz`) | Estado y lógica de sesión: modos, respuestas, submit, drafts |

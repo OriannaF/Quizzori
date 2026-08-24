@@ -37,6 +37,31 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   log("study widget painted", $("#hp-time").textContent !== "--:--" ? "OK (" + $("#hp-time").textContent + ")" : "FAIL");
   log("home dates widget", !!$("#home-dates .widget") ? "OK" : "missing (ok si no hay fechas)");
 
+  const csvMini = [
+    "pregunta,categoria,opcion1,opcion2,opcion3,opcion4,correctas,explicacion",
+    '"Identificar el concepto: 1) uno. 2) dos.",Conceptos,defUno,defDos,Concepto X,Concepto Y,1=4;2=3,',
+    '"Relacioná las definiciones: 1) aa. 2) bb.",TR,def aa,def bb,,,ConB;ConA,',
+    "Pregunta normal?,Norm,opA,opB,,,2,",
+    "Rota?,X,solita,, ,,1=99,",
+    '"Desalineado?",TD,s1,s2,,,R1;R2;R3,'
+  ].join("\n");
+  const pr = w.CSV.parseQuestions(csvMini);
+  const rel = pr.questions[0];
+  const trel = pr.questions[1];
+  const normQ = pr.questions[2];
+  log("csv relacione parsed", pr.questions.length === 3 && pr.warnings.length === 2 ? "OK" : "FAIL " + JSON.stringify(pr.warnings));
+  log("csv relacione shape", rel && rel.type === "dropdown"
+    && rel.slots.join("|") === "defUno|defDos"
+    && rel.dropdown.join("|") === "Concepto X|Concepto Y"
+    && rel.correctSlot.join("|") === "1|0"
+    && rel.slotLabels === true ? "OK" : "FAIL");
+  log("csv relacione textos", trel && trel.type === "dropdown"
+    && trel.slots.join("|") === "def aa|def bb"
+    && trel.dropdown.join("|") === "ConB|ConA"
+    && trel.correctSlot.join("|") === "0|1"
+    && trel.slotLabels === true ? "OK" : "FAIL");
+  log("csv normal intacto", normQ && normQ.type === "select" && normQ.correct.join() === "1" ? "OK" : "FAIL");
+
   const startBtn = $('[id^="btn-start-"]');
   startBtn.click();
   await sleep(100);

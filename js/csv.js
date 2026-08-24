@@ -114,6 +114,83 @@ const CSV = (() => {
         continue;
       }
 
+      const rawMap = String(row[ci] || "").trim();
+      const mapTokens = rawMap ? rawMap.split(/[;|]/).map((t) => t.trim()).filter(Boolean) : [];
+      const collectCands = () => {
+        const cols = [];
+        const ncols = Math.max(header.length, row.length);
+        for (let i = 0; i < ncols; i++) {
+          if (i === qi || i === ci || i === cati || i === expi) continue;
+          const v = String(row[i] || "").trim();
+          if (v) cols.push(v);
+        }
+        return cols;
+      };
+
+      const isPairs = mapTokens.length > 0 && mapTokens.every((t) => /^\d+\s*=\s*\d+$/.test(t));
+      if (isPairs) {
+        const candCols = collectCands();
+        const pairMap = {};
+        for (const t of mapTokens) {
+          const pm = t.match(/^(\d+)\s*=\s*(\d+)$/);
+          pairMap[parseInt(pm[1], 10)] = parseInt(pm[2], 10);
+        }
+        const keys = Object.keys(pairMap).map(Number).sort((a, b) => a - b);
+        const rangeErr = keys.find((k) => k < 1 || k > candCols.length || pairMap[k] < 1 || pairMap[k] > candCols.length);
+        const poolNums = [...new Set(keys.map((k) => pairMap[k]))];
+        if (!candCols.length) warnings.push(`Fila ${line}: no hay celdas con afirmaciones ni conceptos para el cruce. Se omitió.`);
+        else if (rangeErr != null) warnings.push(`Fila ${line}: la posición ${rangeErr} del mapeo está fuera de rango (hay ${candCols.length} celdas con texto, sin contar pregunta/categoría/correctas/explicación). Se omitió.`);
+        else if (poolNums.length < 2) warnings.push(`Fila ${line}: el menú de conceptos necesita al menos 2 elementos distintos. Se omitió.`);
+        else {
+          const poolNumsSorted = poolNums.sort((a, b) => a - b);
+          questions.push({
+            id: questions.length,
+            type: "dropdown",
+            text: textQ,
+            options: [],
+            slots: keys.map((k) => candCols[k - 1]),
+            correctSlot: keys.map((k) => poolNumsSorted.indexOf(pairMap[k])),
+            dropdown: poolNumsSorted.map((n) => candCols[n - 1]),
+            category: String(cati >= 0 ? row[cati] || "" : "").trim(),
+            explanation: String(expi >= 0 ? row[expi] || "" : "").trim(),
+            slotLabels: true
+          });
+        }
+        continue;
+      }
+
+      const isTextRel = mapTokens.length >= 2 && mapTokens.some((t) => !/^\d+$/.test(t));
+      if (isTextRel) {
+        const candCols = collectCands();
+        const answersNorm = mapTokens.map((t) => normText(t));
+        const statements = candCols.filter((c) => !answersNorm.includes(normText(c)));
+        const menuMap = new Map();
+        mapTokens.forEach((t) => {
+          const n = normText(t);
+          if (!menuMap.has(n)) menuMap.set(n, t);
+        });
+        const dropdown = [...menuMap.values()];
+        if (!candCols.length) warnings.push(`Fila ${line}: no hay celdas con las afirmaciones del cruce. Se omitió.`);
+        else if (statements.length === 0) warnings.push(`Fila ${line}: todas las celdas coinciden con respuestas de 'correctas', faltan las afirmaciones. Se omitió.`);
+        else if (statements.length !== mapTokens.length) warnings.push(`Fila ${line}: hay ${statements.length} afirmaciones pero ${mapTokens.length} respuestas en 'correctas' (tienen que coincidir, en orden). Se omitió.`);
+        else if (dropdown.length < 2) warnings.push(`Fila ${line}: el menú de conceptos necesita al menos 2 elementos distintos. Se omitió.`);
+        else {
+          questions.push({
+            id: questions.length,
+            type: "dropdown",
+            text: textQ,
+            options: [],
+            slots: statements,
+            correctSlot: mapTokens.map((t) => dropdown.findIndex((d) => normText(d) === normText(t))),
+            dropdown,
+            category: String(cati >= 0 ? row[cati] || "" : "").trim(),
+            explanation: String(expi >= 0 ? row[expi] || "" : "").trim(),
+            slotLabels: true
+          });
+        }
+        continue;
+      }
+
       if (isDropdown) {
         const optsRaw = oi >= 0 ? String(row[oi] || "").trim() : "";
         const dropdown = optsRaw ? optsRaw.split(/[;|]/).map((t) => t.trim()).filter(Boolean) : [];
