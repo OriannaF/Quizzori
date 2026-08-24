@@ -596,14 +596,12 @@
 
   function activeCardHTML(qq, i, st) {
     const pct = st.total ? Math.round(((st.total - st.today) / st.total) * 100) : 0;
-    const icon = EXAM_ICONS[i % EXAM_ICONS.length];
     const tone = toneOf(i);
     const toneCls = tone === "tone-green" ? "tone-green" : tone === "tone-purple" ? "tone-purple" : "tone-blue";
     const hasDraft = Quiz.draftOf(qq.hash);
     const mat = materiaOf(qq.hash);
     return `
     <div class="exam-card ${tone}">
-      <div class="course-side"><span class="material-symbols-outlined">${icon}</span></div>
       <div class="exam-card-body">
         <div class="mat-titling">
           <h3>${esc(st.name)}</h3>
@@ -821,7 +819,6 @@
     const mat = materiaOf(st.hash);
     return `
       <div class="exam-card ${tone}">
-        <div class="course-side"><span class="material-symbols-outlined">${EXAM_ICONS[(i + 1) % EXAM_ICONS.length]}</span></div>
         <div class="exam-card-body">
           <div class="course-top">
             <div class="mat-titling">
