@@ -1595,7 +1595,7 @@ html.light .mat-thumb { box-shadow: inset 0 2px 12px rgba(35, 44, 73, 0.08); }
 /* ===== Fechas de parciales por materia ===== */
 .fecha-add {
   display: grid;
-  grid-template-columns: 1.4fr 1fr auto;
+  grid-template-columns: 1.4fr 1fr 1fr auto;
   gap: 8px;
   margin-top: 14px;
   padding-top: 14px;

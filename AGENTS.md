@@ -26,7 +26,7 @@ No hay framework ni bundler: lo que está en `js/` va directo al browser.
 | `js/cloud.js` (`Cloud`) | Firebase Auth (Google) + Firestore sync del progreso (`/users/{uid}`) + colección pública `courses` (materias visibles para todos, escritura solo admin). Config dentro del archivo. |
 | `js/ui.js` (`UI`) | TODO el render y routing de vistas: `inicio`, `cursos`, `progreso`, quiz, resultados, calendario, pomodoro, cloud UI |
 
-Datos: `data/*.csv` — un CSV = un cuestionario ("Final ADS" 278 preguntas, "Borboleto" 105).
+Datos: `data/*.csv` — un CSV = un cuestionario ("Final ADS" 278 preguntas, "Burpleria").
 
 ## APIs clave (y trampas)
 
