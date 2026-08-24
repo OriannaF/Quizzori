@@ -11,7 +11,7 @@ const Quiz = (() => {
     questionnaires: [], // array of {hash, name, questions}
     currentHash: "",
     progress: {},
-    settings: { size: 20, points: 1 },
+    settings: { size: 20, points: 1, cat: "" },
     hash: "",
     name: "",
     items: [],
@@ -55,6 +55,7 @@ const Quiz = (() => {
     S.settings.points = isNaN(pts) ? 1 : Math.max(0.05, pts);
     const modes = ["today", "random", "new", "failed", "all"];
     S.settings.mode = modes.includes(saved.mode) ? saved.mode : "today";
+    S.settings.cat = typeof saved.cat === "string" ? saved.cat : "";
   }
 
   const validDate = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(new Date(v + "T00:00:00").getTime()) ? v : "";
@@ -174,7 +175,8 @@ const Quiz = (() => {
     Store.saveSettings({
       sessionSize: S.settings.size,
       points: S.settings.points,
-      mode: S.settings.mode
+      mode: S.settings.mode,
+      cat: S.settings.cat
     });
   }
 
@@ -186,6 +188,11 @@ const Quiz = (() => {
 
   function setMode(m) {
     S.settings.mode = ["today", "random", "new", "failed", "all"].includes(m) ? m : "today";
+    persistSettings();
+  }
+
+  function setCat(v) {
+    S.settings.cat = String(v || "").trim();
     persistSettings();
   }
 
@@ -223,6 +230,10 @@ const Quiz = (() => {
     } else {
       const current = S.questionnaires.find(q => q.hash === S.currentHash);
       if (current) questions = current.questions;
+    }
+    const want = String(S.settings.cat || "").trim();
+    if (want) {
+      questions = questions.filter((q) => (q.category || "").trim() === want);
     }
     buildFrom(() => Sched.buildByMode(questions, S.progress, S.settings.mode, S.settings.size, undefined, S.settings.points));
   }
@@ -526,7 +537,7 @@ const Quiz = (() => {
   return {
     S, loadCsv, tryLoadSaved, newSession, repeatSession, failedSession, toggle, setSlot, setFill,
     isAnswered, answeredCount, submit, tryResume, resetProgress,
-    persistSettings, setSize, setPoints, setMode, setExamDate, setCatExamDate, quizDate, catDate,
+    persistSettings, setSize, setPoints, setMode, setCat, setExamDate, setCatExamDate, quizDate, catDate,
     stats, failedCount, todayCount, newCount, scheduledByDay, questionsOnDay, scoreQuestion,
     selectQuestionnaire, examDateFor, setExamDateFor, statsFor, draftOf, resetProgressFor,
     scheduledByDayFor, questionsOnDayFor,

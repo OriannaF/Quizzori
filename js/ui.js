@@ -121,7 +121,11 @@
     if (!box || !timeEl || !playEl || !dotsEl) return;
     const m = Math.floor(pomo.remaining / 60);
     const s = pomo.remaining % 60;
-    timeEl.textContent = `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    const tstr = `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    timeEl.textContent = tstr;
+    try {
+      document.title = pomo.running ? `${tstr} · ${pomoLabel()} — Quizzori` : "Quizzori";
+    } catch (err) {}
     timeEl.title = pomoLabel();
     playEl.querySelector(".material-symbols-outlined").textContent = pomo.running ? "pause" : "play_arrow";
     playEl.title = pomo.running ? "Pausar" : "Iniciar";
@@ -558,6 +562,22 @@
       `<option value="${n}" ${S().settings.size === n ? "selected" : ""}>${n === 0 ? `Todas (${Math.min(1000, st.total)})` : n} preguntas</option>`).join("");
   }
 
+  function catOptions(hash) {
+    const qz = Quiz.S.questionnaires.find((x) => x.hash === hash);
+    if (!qz) return "";
+    const cats = [];
+    qz.questions.forEach((q) => {
+      const c = (q.category || "").trim();
+      if (c && cats.indexOf(c) === -1) cats.push(c);
+    });
+    if (!cats.length) return "";
+    cats.sort((a, b) => a.localeCompare(b));
+    const cur = String(S().settings.cat || "");
+    const valid = cats.indexOf(cur) !== -1;
+    return `<option value="">Todas las categorías</option>` +
+      cats.map((c) => `<option value="${esc(c)}" ${valid && c === cur ? "selected" : ""}>${esc(c)}</option>`).join("");
+  }
+
   function startQuiz(hash) {
     returnView = currentView;
     Quiz.selectQuestionnaire(hash);
@@ -579,6 +599,8 @@
     if (startBtn) startBtn.addEventListener("click", () => startQuiz(hash));
     const modeSel = document.getElementById("sel-mode-" + hash);
     if (modeSel) modeSel.addEventListener("change", (e) => Quiz.setMode(e.target.value));
+    const catSel = document.getElementById("sel-cat-" + hash);
+    if (catSel) catSel.addEventListener("change", (e) => Quiz.setCat(e.target.value));
     const sizeSel = document.getElementById("sel-size-" + hash);
     if (sizeSel) sizeSel.addEventListener("change", (e) => Quiz.setSize(e.target.value));
     const pointsInp = document.getElementById("inp-points-" + hash);
@@ -626,6 +648,12 @@
           <button class="play-fab" id="btn-start-${st.hash}" title="Comenzar sesión">
             <span class="material-symbols-outlined">play_arrow</span>
           </button>
+          ${(() => {
+            const opts = catOptions(st.hash);
+            return opts ? `
+          <label class="field-label visually-hidden" for="sel-cat-${st.hash}">Categoría</label>
+          <select class="input sm cat-sel" id="sel-cat-${st.hash}">${opts}</select>` : "";
+          })()}
         </div>
         ${hasDraft ? `
         <button class="draft-chip" id="btn-resume-${st.hash}">
@@ -871,6 +899,12 @@
             <button class="play-fab" id="btn-start-${st.hash}" title="Comenzar sesión">
               <span class="material-symbols-outlined">play_arrow</span>
             </button>
+            ${(() => {
+              const opts = catOptions(st.hash);
+              return opts ? `
+            <label class="field-label visually-hidden" for="sel-cat-${st.hash}">Categoría</label>
+            <select class="input sm cat-sel" id="sel-cat-${st.hash}">${opts}</select>` : "";
+            })()}
           </div>
           ${Quiz.draftOf(st.hash) ? `
           <button class="draft-chip" id="btn-resume-${st.hash}">
