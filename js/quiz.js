@@ -471,12 +471,37 @@ const Quiz = (() => {
     return courseExamsMap()[id] || "";
   }
 
+  function courseExamsHoraMap() {
+    const raw = Store.loadCourseExamHoras();
+    const out = {};
+    if (raw && typeof raw === "object") {
+      for (const k of Object.keys(raw)) {
+        const v = String(raw[k] || "").trim().slice(0, 40);
+        if (v) out[k] = v;
+      }
+    }
+    return out;
+  }
+
+  function setCourseExamHoraFor(id, hora) {
+    if (!id) return;
+    const map = Store.loadCourseExamHoras() || {};
+    const v = String(hora || "").trim().slice(0, 40);
+    if (v) map[id] = v;
+    else delete map[id];
+    Store.saveCourseExamHoras(map);
+  }
+
   function setCourseExamFor(id, iso) {
     if (!id) return;
     const map = Store.loadCourseExams() || {};
     const d = validDate(iso);
     if (d) map[id] = d;
-    else delete map[id];
+    else {
+      delete map[id];
+      const hm = Store.loadCourseExamHoras() || {};
+      if (hm[id]) { delete hm[id]; Store.saveCourseExamHoras(hm); }
+    }
     Store.saveCourseExams(map);
     refreshMateriaCut();
   }
@@ -487,7 +512,7 @@ const Quiz = (() => {
     const progress = Store.loadProgress(hash);
     const pts = S.settings.points;
     const t = Sched.startOfDay();
-    let today = 0, newN = 0, mastered = 0, failed = 0, failedNow = 0;
+    let today = 0, newN = 0, mastered = 0, failed = 0, failedNow = 0, seen = 0;
     for (const qq of q.questions) {
       const c = progress[qq.id];
       if (!c || !c.due || Sched.isDue(c, t)) today++;
@@ -495,8 +520,9 @@ const Quiz = (() => {
       if (c && c.reps >= 3) mastered++;
       if (c && c.fails > 0) failed++;
       if (c && c.last !== undefined && c.last < pts - 1e-9) failedNow++;
+      if (c && (c.attempts || 0) > 0) seen++;
     }
-    return { hash, name: q.name, total: q.questions.length, today, newN, mastered, failed, failedNow, date: examDateFor(hash) };
+    return { hash, name: q.name, total: q.questions.length, today, newN, mastered, failed, failedNow, seen, date: examDateFor(hash) };
   }
 
   function draftOf(hash) {
@@ -541,7 +567,7 @@ const Quiz = (() => {
     stats, failedCount, todayCount, newCount, scheduledByDay, questionsOnDay, scoreQuestion,
     selectQuestionnaire, examDateFor, setExamDateFor, statsFor, draftOf, resetProgressFor,
     scheduledByDayFor, questionsOnDayFor,
-    materiaCutoffFor, courseExamsMap, courseExamFor, setCourseExamFor
+    materiaCutoffFor, courseExamsMap, courseExamsHoraMap, courseExamFor, setCourseExamFor, setCourseExamHoraFor
   };
 })();
 

@@ -668,6 +668,7 @@
   function fechasBoxHTML(sfx) {
     const courses = loadCourses();
     const exams = Quiz.courseExamsMap();
+    const horas = Quiz.courseExamsHoraMap();
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const rows = courses
       .filter((c) => exams[c.id])
@@ -678,6 +679,9 @@
         const days = Math.round((d - today) / 86400000);
         const past = days < 0;
         const tone = past ? "past" : days <= 7 ? "" : "tone-green";
+        const metaTxt = horas[c.id]
+          ? esc(horas[c.id])
+          : (days === 0 ? "¡Es hoy!" : days === 1 ? "Mañana" : past ? "Ya pasó" : `${days} días restantes`);
         return `
         <div class="date-item">
           <div class="date-box ${tone}">
@@ -686,15 +690,14 @@
           </div>
           <div class="date-info">
             <h4>${esc(c.name)}</h4>
-            <span class="meta">${days === 0 ? "¡Es hoy!" : days === 1 ? "Mañana" : past ? "Ya pasó" : `${days} días restantes`}</span>
+            <span class="meta">${metaTxt}</span>
           </div>
           <div class="date-count ${past ? "past" : ""}"><b>${Math.max(0, days)}</b><span>días</span></div>
-          <button class="mini-edit del fecha-del" data-fecha-del="${c.id}" title="Quitar fecha">
+          ${sfx === "cur" ? `<button class="mini-edit del fecha-del" data-fecha-del="${c.id}" title="Quitar fecha">
             <span class="material-symbols-outlined">close</span>
-          </button>
+          </button>` : ""}
         </div>`;
       }).join("");
-    const options = courses.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join("");
     return `
     <div class="widget">
       <div class="widget-head">
@@ -704,12 +707,14 @@
       ${rows || (courses.length
         ? `<div class="empty-note">Ninguna materia tiene fecha todavía.<br>Elegí una materia abajo y asignale la fecha límite.</div>`
         : `<div class="empty-note">Creá una materia para asignarle su fecha de parcial.</div>`)}
-      ${courses.length ? `
+      ${sfx === "cur" && courses.length ? `
       <div class="fecha-add">
         <label class="field-label visually-hidden" for="sel-mat-${sfx}">Materia</label>
-        <select class="input sm" id="sel-mat-${sfx}">${options}</select>
+        <select class="input sm" id="sel-mat-${sfx}">${courses.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select>
         <label class="field-label visually-hidden" for="inp-fecha-${sfx}">Fecha límite</label>
         <input class="input sm" type="date" id="inp-fecha-${sfx}">
+        <label class="field-label visually-hidden" for="inp-hora-${sfx}">Horario</label>
+        <input class="input sm" type="text" id="inp-hora-${sfx}" placeholder="Horario ej: 8 a 11" maxlength="40">
         <button class="btn primary sm" id="btn-fecha-${sfx}">
           <span class="material-symbols-outlined">event</span>Guardar
         </button>
@@ -724,7 +729,9 @@
       const inp = document.getElementById("inp-fecha-" + sfx);
       if (!sel || !sel.value) return;
       if (!inp.value) { toast("Elegí una fecha primero."); return; }
+      const inpH = document.getElementById("inp-hora-" + sfx);
       Quiz.setCourseExamFor(sel.value, inp.value);
+      Quiz.setCourseExamHoraFor(sel.value, inpH ? inpH.value : "");
       toast("Fecha guardada.");
       refreshView();
     });
@@ -871,7 +878,8 @@
   function questionnaireCardHTML(st, i) {
     const tone = toneOf(i);
     const toneCls = tone === "tone-green" ? "tone-green" : tone === "tone-purple" ? "tone-purple" : "tone-blue";
-    const pct = st.total ? Math.round((st.mastered / st.total) * 100) : 0;
+    const seen = st.seen != null ? st.seen : st.total;
+    const pct = seen ? Math.round((st.mastered / seen) * 100) : 0;
     const mat = materiaOf(st.hash);
     return `
       <div class="exam-card ${tone}">
@@ -916,14 +924,14 @@
   }
 
   function courseProgressOf(c) {
-    let mastered = 0, total = 0;
+    let mastered = 0, seen = 0;
     (c.quizzes || []).forEach((h) => {
       const st = Quiz.statsFor(h);
       if (!st) return;
-      total += st.total;
+      seen += st.seen != null ? st.seen : st.total;
       mastered += st.mastered;
     });
-    return { pct: total ? Math.round((mastered / total) * 100) : 0 };
+    return { pct: seen ? Math.round((mastered / seen) * 100) : 0 };
   }
 
   function courseCardHTML(c, i) {
@@ -1360,7 +1368,8 @@
     const qs = S().questionnaires;
     const stats = qs.map((qq) => Quiz.statsFor(qq.hash)).filter(Boolean);
     const rows = stats.map((st) => {
-      const pct = st.total ? Math.round((st.mastered / st.total) * 100) : 0;
+      const seen = st.seen != null ? st.seen : st.total;
+      const pct = seen ? Math.round((st.mastered / seen) * 100) : 0;
       return `
       <div class="prog-row">
         <div class="prog-head">
