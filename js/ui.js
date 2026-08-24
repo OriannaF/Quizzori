@@ -246,7 +246,7 @@
 
     return Promise.all([
       loadOne("data/cuestionario.csv", "Final ADS"),
-      loadOne("data/cuestionario Borboleto.csv", "Borboleto")
+      loadOne("data/cuestionario Burpleria.csv", "Burpleria")
     ]).then(([r1, r2]) => {
       if (S().questionnaires.length > 0) return { ok: true, loaded: true };
       if (r1.errors) return { ok: false, errors: r1.errors };
@@ -1621,6 +1621,14 @@
     renderResults(res);
   }
 
+  function explainBlock(txt) {
+    if (txt.length < 240) return `<div class="explain">${rich(txt)}</div>`;
+    return `<div class="explain-wrap">
+      <div class="explain">${rich(txt)}</div>
+      <button class="explain-toggle" type="button"><span class="material-symbols-outlined">expand_more</span><span class="et-lab">Ver más</span></button>
+    </div>`;
+  }
+
   function renderResults(r) {
     const pct = r.max ? Math.round((r.total / r.max) * 100) : 0;
     const msg = pct === 100 ? "¡Perfecto!" : pct >= 80 ? "¡Muy bien!" : pct >= 60 ? "Aprobado" : pct >= 40 ? "Hay que repasar" : "¡A estudiar más!";
@@ -1680,7 +1688,7 @@
           </div>
           <div class="qtext">${rich(d.q.text)}</div>
           <div class="opt-grid">${opts}</div>
-          ${d.q.explanation ? `<div class="explain">${rich(d.q.explanation)}</div>` : ""}
+          ${d.q.explanation ? explainBlock(d.q.explanation) : ""}
         </div>`;
     }).join("");
 
@@ -1704,6 +1712,11 @@
     document.getElementById("btn-fail").addEventListener("click", () => { Quiz.failedSession(); renderQuiz(); });
     document.getElementById("btn-next").addEventListener("click", () => { Quiz.newSession(); renderQuiz(); });
     document.getElementById("btn-home").addEventListener("click", () => navigate(returnView));
+    document.querySelectorAll(".explain-toggle").forEach((b) => b.addEventListener("click", () => {
+      const wrap = b.closest(".explain-wrap");
+      const open = wrap.classList.toggle("open");
+      b.querySelector(".et-lab").textContent = open ? "Ver menos" : "Ver más";
+    }));
   }
 
   window.UI = { init };
