@@ -34,8 +34,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const $ = (s) => w.document.querySelector(s);
   const log = (k, v) => console.log(k.padEnd(34), v);
 
-  log("focus card pintada", $("#pf-time") && $("#pf-time").textContent !== "" ? "OK (" + $("#pf-time").textContent + ")" : "FAIL");
-  log("home parciales", !!($("#home-dates .parcial-card") || $("#home-dates .empty-note")) ? "OK" : "FAIL");
+  log("pomodoro header", $("#pomo-time") && $("#pomo-time").textContent !== "" ? "OK (" + $("#pomo-time").textContent + ")" : "FAIL");
+  log("sin focus card", !$("#pf-time") ? "OK" : "FAIL");
+  log("home evaluaciones anon ocultas", !$("#home-dates .eval-list") && !$(".hg-side .widget") ? "OK" : "FAIL");
   log("home tareas", !!($("#home-tareas .task-row") || $("#home-tareas .empty-note")) ? "OK" : "FAIL");
 
   const csvMini = [

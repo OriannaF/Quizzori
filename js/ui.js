@@ -897,44 +897,6 @@
     </section>`;
   }
 
-  function parcialesHomeHTML() {
-    const courses = loadCourses();
-    const exams = Quiz.courseExamsMap();
-    const horas = Quiz.courseExamsHoraMap();
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const rows = courses
-      .filter((c) => exams[c.id])
-      .map((c) => ({ c, d: new Date(exams[c.id] + "T12:00:00") }))
-      .filter((x) => !isNaN(x.d.getTime()))
-      .sort((a, b) => a.d - b.d)
-      .map(({ c, d }, i) => {
-        const days = Math.round((d - today) / 86400000);
-        const past = days < 0;
-        if (past && days < -30) return "";
-        const toneCls = i % 2 === 0 ? "t-green" : "t-blue";
-        return `
-        <div class="parcial-card" data-go-cursos role="button" tabindex="0">
-          <div class="pcal ${toneCls}${past ? " past" : ""}">
-            <span class="mon">${MONTHS_SHORT[d.getMonth()]}</span>
-            <span class="day">${d.getDate()}</span>
-          </div>
-          <div class="pc-info">
-            <h4>${esc(c.name)}</h4>
-            <div class="pc-sub"><span class="material-symbols-outlined">schedule</span><span>${horas[c.id] ? esc(horas[c.id]) : "Sin horario"}</span></div>
-          </div>
-          <div class="pdays${past ? " past" : ""}"><b>${Math.max(0, days)}</b><span>días</span></div>
-        </div>`;
-      }).join("");
-    return `
-    <section class="panel-sec">
-      <div class="sec-head-row">
-        <div class="sec-title"><span class="material-symbols-outlined">event</span><h2>Próximos Parciales</h2></div>
-        <button class="link-btn icon" id="btn-parciales-add" title="Editar fechas en Materias"><span class="material-symbols-outlined">add</span></button>
-      </div>
-      ${rows || `<div class="empty-note">No hay fechas cargadas. Cargalas desde Materias.</div>`}
-    </section>`;
-  }
-
   function evalDateOf(s) {
     const ms = String(s).match(/\d{2}\/\d{2}\/\d{4}/g);
     if (!ms) return null;
@@ -954,7 +916,7 @@
       .filter((r) => r.d && !isNaN(r.d.getTime()))
       .filter((r) => { r.days = Math.round((r.d - today) / 86400000); return r.days >= 0; })
       .sort((a, b) => a.d - b.d)
-      .slice(0, 3);
+      .slice(0, 10);
     if (!rows.length) {
       return `
       <div class="widget">
@@ -1122,65 +1084,25 @@
             </section>
           </div>
           <aside class="hg-side">
-            <div class="focus-wrap">
-              <section class="focus-card" id="focus-card">
-                <div class="fc-head">
-                  <h3>Modo Enfoque</h3>
-                  <button class="icon-btn ghost" id="pf-cfg" type="button" title="Configurar pomodoro"><span class="material-symbols-outlined">more_vert</span></button>
-                </div>
-                <div class="fc-ring">
-                  <svg viewBox="0 0 100 100">
-                    <circle cx="50" cy="50" r="46" fill="none" stroke="var(--panel-hi)" stroke-width="5"></circle>
-                    <circle id="pf-ring" cx="50" cy="50" r="46" fill="none" stroke="var(--accent-soft)" stroke-width="6"
-                      stroke-linecap="round" stroke-dasharray="289" stroke-dashoffset="0" transform="rotate(-90 50 50)"></circle>
-                  </svg>
-                  <div class="fc-center">
-                    <span class="fc-time mono-label" id="pf-time">25:00</span>
-                    <span class="fc-phase mono-label" id="pf-phase">Estudio</span>
-                  </div>
-                </div>
-                <div class="fc-controls">
-                  <button class="round-btn sm" id="pf-reset" type="button" title="Reiniciar fase"><span class="material-symbols-outlined">replay</span></button>
-                  <button class="round-btn lg" id="pf-play" type="button" title="Iniciar / Pausar"><span class="material-symbols-outlined">play_arrow</span></button>
-                  <button class="round-btn sm" id="pf-skip" type="button" title="Saltar fase"><span class="material-symbols-outlined">skip_next</span></button>
-                </div>
-                <div class="fc-dots" id="pf-dots"></div>
-                <span class="mono-label muted fc-cap" id="pf-cap">0/4 POMODOROS COMPLETADOS</span>
-              </section>
-            </div>
             ${nextEvalsHTML()}
           </aside>
         </div>
         <div class="home-bottom">
-          <div id="home-dates">${parcialesHomeHTML()}${agendaHTML()}</div>
+          <div id="home-dates">${agendaHTML()}</div>
           <div id="home-tareas">${tareasHTML()}</div>
         </div>
       </div>
     `);
 
-    paintFocusCard();
     qs.forEach((qq) => bindExamCard(qq.hash, qq));
     bindTareas();
     const verTodos = document.getElementById("btn-ver-todos");
     if (verTodos) verTodos.addEventListener("click", () => navigate("cursos"));
     const emptyBtn = document.getElementById("btn-empty-cursos");
     if (emptyBtn) emptyBtn.addEventListener("click", () => navigate("cursos"));
-    const parAdd = document.getElementById("btn-parciales-add");
-    if (parAdd) parAdd.addEventListener("click", () => navigate("cursos"));
     document.querySelectorAll("[data-go-cursos]").forEach((el) => {
       el.addEventListener("click", () => navigate("cursos"));
     });
-    const pfCfg = document.getElementById("pf-cfg");
-    if (pfCfg) pfCfg.addEventListener("click", () => {
-      const cfg = document.getElementById("pomo-cfg");
-      if (cfg) cfg.click();
-    });
-    const pfPlay = document.getElementById("pf-play");
-    if (pfPlay) pfPlay.addEventListener("click", pomoToggle);
-    const pfReset = document.getElementById("pf-reset");
-    if (pfReset) pfReset.addEventListener("click", pomoReset);
-    const pfSkip = document.getElementById("pf-skip");
-    if (pfSkip) pfSkip.addEventListener("click", pomoSkip);
   }
 
   function loadCourses() {
