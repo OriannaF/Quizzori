@@ -72,6 +72,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const itemsF = Sch.buildByMode(filtradas, {}, "all", 0);
   log("sesion por categoria", itemsF.length === 1 && itemsF[0].q === filtradas[0] ? "OK" : "FAIL");
 
+  const dq = { id: 9, type: "dropdown", text: "D", slots: ["a", "b"], dropdown: ["v1", "v2", "v3", "v4", "v5", "v6"], correctSlot: [0, 1], options: [] };
+  const dItems = [Sch.makeItem(dq), Sch.makeItem(dq)];
+  const sameSet = (arr) => arr.slice().sort((x, y) => x - y).join() === [0, 1, 2, 3, 4, 5].join();
+  const shuffled = dItems.some((it) => it.dropOrder && it.dropOrder.some((v, i) => v !== i));
+  log("dropOrder permutacion", dItems.every((it) => Array.isArray(it.dropOrder) && it.dropOrder.length === 6 && sameSet(it.dropOrder)) ? "OK" : "FAIL");
+  log("dropOrder baraja", shuffled ? "OK" : "FAIL (orden identidad)");
+
   const startBtn = $('[id^="btn-start-"]');
   startBtn.click();
   await sleep(100);

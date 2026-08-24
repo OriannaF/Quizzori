@@ -327,7 +327,7 @@ const Quiz = (() => {
   function saveDraft() {
     const hash = S.currentHash || S.hash;
     Store.saveDraft(hash, {
-      items: S.items.map((it) => ({ idx: it.q.id, order: it.optOrder })),
+      items: S.items.map((it) => ({ idx: it.q.id, order: it.optOrder, drop: it.dropOrder })),
       answers: S.answers
     });
   }
@@ -342,7 +342,8 @@ const Quiz = (() => {
       if (!q) return false;
       items.push({
         q,
-        optOrder: Array.isArray(m.order) && m.order.length === q.options.length ? m.order : q.options.map((_, i) => i)
+        optOrder: Array.isArray(m.order) && m.order.length === q.options.length ? m.order : q.options.map((_, i) => i),
+        dropOrder: Array.isArray(m.drop) && q.dropdown && m.drop.length === q.dropdown.length ? m.drop : undefined
       });
     }
     S.items = items;

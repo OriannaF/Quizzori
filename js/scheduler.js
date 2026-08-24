@@ -91,7 +91,11 @@ const Scheduler = (() => {
   };
 
   function makeItem(q) {
-    return { q, optOrder: shuffle(q.options.map((_, i) => i)) };
+    const it = { q, optOrder: shuffle(q.options.map((_, i) => i)) };
+    if (q.type === "dropdown" && Array.isArray(q.dropdown) && q.dropdown.length > 1) {
+      it.dropOrder = shuffle(q.dropdown.map((_, i) => i));
+    }
+    return it;
   }
 
   const splitPools = (questions, progress, now) => {

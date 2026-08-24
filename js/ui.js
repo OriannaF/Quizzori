@@ -20,6 +20,29 @@
   ];
   const DIAS_L = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
+  const AGENDA = [
+    { mat: "Análisis de sistemas", desc: "", tipo: "Final", fecha: "09/09/2026 16:00" },
+    { mat: "Probabilidad y Estadistica", desc: "Primera instancia de evaluación", tipo: "Parcial", fecha: "18/09/2026" },
+    { mat: "Planificacion", desc: "Primer parcial teorico-practico", tipo: "Parcial", fecha: "22/09/2026" },
+    { mat: "Probabilidad y Estadistica", desc: "Primer Recuperatorio", tipo: "Recuperatorio", fecha: "25/09/2026" },
+    { mat: "AM II", desc: "", tipo: "Parcial Práctico", fecha: "29/09/2026" },
+    { mat: "Diseño de sistemas", desc: "IE3 Práctico", tipo: "Parcial Práctico", fecha: "07/10/2026" },
+    { mat: "AM II", desc: "", tipo: "Parcial Práctico", fecha: "20/10/2026" },
+    { mat: "Probabilidad y Estadistica", desc: "Segunda instancia de evaluación", tipo: "Parcial", fecha: "30/10/2026" },
+    { mat: "AM II", desc: "", tipo: "Recuperatorio", fecha: "01/11/2026" },
+    { mat: "Diseño de sistemas", desc: "IE3 Recu practica", tipo: "Recuperatorio", fecha: "04/11/2026" },
+    { mat: "Planificacion", desc: "Segundo parcial teorico", tipo: "Parcial", fecha: "10/11/2026" },
+    { mat: "Planificacion", desc: "Recuperatorios", tipo: "Recuperatorio", fecha: "17/11/2026" },
+    { mat: "Diseño de sistemas", desc: "IE4 TPI", tipo: "TPI", fecha: "18/11/2026 → 25/11/2026" },
+    { mat: "Diseño de sistemas", desc: "IE5 Teoria", tipo: "Parcial Teórico", fecha: "18/11/2026" },
+    { mat: "Probabilidad y Estadistica", desc: "Tercer Instancia de Evaluación", tipo: "Parcial", fecha: "20/11/2026" },
+    { mat: "Probabilidad y Estadistica", desc: "Instancia de recuperatorios", tipo: "Recuperatorio", fecha: "27/11/2026" },
+    { mat: "AM II", desc: "", tipo: "Parcial Teórico", fecha: "01/12/2026" },
+    { mat: "Planificacion", desc: "Entrega final pr [ABRIR] seguimiento", tipo: "TPI", fecha: "01/12/2026" },
+    { mat: "Diseño de sistemas", desc: "IE4 Recu TPI", tipo: "Recuperatorio", fecha: "02/12/2026" },
+    { mat: "Diseño de sistemas", desc: "IE5 Recu Teoria", tipo: "Recuperatorio", fecha: "09/12/2026" }
+  ];
+
   const esc = (v) => String(v == null ? "" : v)
     .replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const rich = (v) => String(v == null ? "" : v)
@@ -330,6 +353,7 @@
     const aic = document.getElementById("acct-ic");
     const aname = document.getElementById("acct-name");
     if (Cloud && Cloud.isConfigured()) Cloud.init();
+    let wasOwner = isOwner();
     const paint = () => {
       const u = Cloud && Cloud.user();
       const full = u ? (u.name || u.email || "Cuenta") : "";
@@ -349,8 +373,15 @@
         b.title = !u ? "Iniciar sesión con Google y sincronizar progreso"
           : full + " · clic para cerrar sesión";
       });
+      const nowOwner = isOwner();
+      if (nowOwner !== wasOwner && (currentView === "inicio" || currentView === "cursos")) refreshView();
+      wasOwner = nowOwner;
     };
-    btns.forEach((btn) => btn.addEventListener("click", () => {
+    btns.forEach((btn) => {
+      btn.addEventListener("pointerdown", () => {
+        if (Cloud && Cloud.isConfigured() && !Cloud.user() && typeof Cloud.warm === "function") Cloud.warm();
+      });
+      btn.addEventListener("click", () => {
       if (!Cloud || !Cloud.isConfigured()) {
         toast("Sync sin configurar: creá un proyecto gratis en Firebase y pegá las claves en js/cloud.js");
         return;
@@ -372,7 +403,8 @@
         }
         if (e) console.error("Cloud sign-in error:", e);
       });
-    }));
+      });
+    });
     if (Cloud) Cloud.onChange(paint);
     paint();
   }
@@ -903,6 +935,38 @@
     </section>`;
   }
 
+  function agendaHTML() {
+    if (!isOwner()) return "";
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const lastDateOf = (s) => {
+      const ms = String(s).match(/\d{2}\/\d{2}\/\d{4}/g);
+      if (!ms) return null;
+      const p = ms[ms.length - 1].split("/");
+      return new Date(+p[2], +p[1] - 1, +p[0]);
+    };
+    const toneCls = (t) => /recup/i.test(t) ? "t-recu" : /final/i.test(t) ? "t-final" : /\btpi\b/i.test(t) ? "t-tpi" : "t-parcial";
+    const rows = AGENDA.map((x) => {
+      const d = lastDateOf(x.fecha);
+      const past = d ? d < today : false;
+      return `
+      <div class="eval-row${past ? " past" : ""}">
+        <span class="ev-mat">${esc(x.mat)}</span>
+        <span class="ev-desc">${x.desc ? esc(x.desc) : "—"}</span>
+        <span class="ev-tag ${toneCls(x.tipo)}">${esc(x.tipo)}</span>
+        <span class="ev-date">${esc(x.fecha)}</span>
+      </div>`;
+    }).join("");
+    return `
+    <section class="panel-sec">
+      <div class="sec-head-row">
+        <div class="sec-title"><span class="material-symbols-outlined">edit_calendar</span><h2>Agenda de Evaluaciones</h2></div>
+        <span class="day-pill mono-label">${AGENDA.length} fechas</span>
+      </div>
+      <div class="eval-head"><span>Materia</span><span>Descripción</span><span>Tipo</span><span>Fecha</span></div>
+      <div class="eval-list">${rows}</div>
+    </section>`;
+  }
+
   function tasksList() {
     try {
       const arr = window.QuizStore.loadTasks();
@@ -1046,7 +1110,7 @@
           </aside>
         </div>
         <div class="home-bottom">
-          <div id="home-dates">${parcialesHomeHTML()}</div>
+          <div id="home-dates">${parcialesHomeHTML()}${agendaHTML()}</div>
           <div id="home-tareas">${tareasHTML()}</div>
         </div>
       </div>
@@ -1724,11 +1788,12 @@
       const body = q.type === "dropdown"
         ? (() => {
           const chosen = S().answers[q.id] || {};
+          const order = Array.isArray(it.dropOrder) && it.dropOrder.length === q.dropdown.length ? it.dropOrder : q.dropdown.map((_, j) => j);
           const rows = q.slots.map((txt, si) => `<label class="slot ${q.slotLabels ? "slot-labeled" : ""}">
             <span class="slot-head"><span class="slot-num">${si + 1}</span>${q.slotLabels ? `<span class="slot-lab">${esc(txt)}</span>` : ""}</span>
             <select class="input slot-select" data-q="${q.id}" data-slot="${si}">
               <option value="">Elegí una opción…</option>
-              ${q.dropdown.map((opt, j) => `<option value="${j}" ${j === chosen[si] ? "selected" : ""}>${esc(opt)}</option>`).join("")}
+              ${order.map((orig) => `<option value="${orig}" ${orig === chosen[si] ? "selected" : ""}>${esc(q.dropdown[orig])}</option>`).join("")}
             </select>
           </label>`).join("");
           return `<div class="qtext">${rich(q.text)}</div><div class="slot-grid">${rows}</div>`;

@@ -147,7 +147,6 @@
     function startSession(u) {
       user = u ? { uid: u.uid, name: u.displayName || "", email: u.email || "" } : null;
       if (!user) { emit(); return; }
-      try { localStorage.setItem("quiz.cloud.wasIn", "1"); } catch (e) {}
       pullMergeAndPush().then(() => {
         if (user && !storeUnsub) storeUnsub = window.QuizStore.onChange(schedulePush);
       });
@@ -158,7 +157,6 @@
       user = null;
       if (storeUnsub) { storeUnsub(); storeUnsub = null; }
       if (pushTimer) { clearTimeout(pushTimer); pushTimer = null; }
-      try { localStorage.removeItem("quiz.cloud.wasIn"); } catch (e) {}
       emit();
     }
 
@@ -171,31 +169,32 @@
       });
     }
 
-    function prefersRedirect() {
-      try {
-        const coarse = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
-        const touch = ("ontouchstart" in window) || (navigator.maxTouchPoints || 0) > 0;
-        return coarse || (touch && Math.min(window.innerWidth || 9999, window.innerHeight || 9999) <= 820);
-      } catch (e) { return false; }
+    function ensureLoaded() {
+      if (fb) return Promise.resolve();
+      return loadSdk().then((firebase) => {
+        initFb(firebase);
+        attachAuthListener();
+      });
     }
 
     function doRedirect(provider) {
       try { localStorage.setItem(REDIRECT_FLAG, "1"); } catch (e) {}
-      return fb.auth().signInWithRedirect(provider);
+      return fb.auth().signInWithRedirect(provider).catch((err) => {
+        try { localStorage.removeItem(REDIRECT_FLAG); } catch (e) {}
+        throw err;
+      });
     }
 
     function signIn() {
-      return loadSdk().then((firebase) => {
-        initFb(firebase);
-        attachAuthListener();
+      return ensureLoaded().then(() => {
         const provider = new fb.auth.GoogleAuthProvider();
-        if (prefersRedirect()) return doRedirect(provider);
         return fb.auth().signInWithPopup(provider).catch((err) => {
           const c = String((err && err.code) || "");
-          if (c.indexOf("popup") !== -1 || c === "auth/operation-not-supported-in-this-environment" || c === "auth/network-request-failed") {
-            return doRedirect(provider);
-          }
-          throw err;
+          const fallback = c.indexOf("popup") !== -1 ||
+            c === "auth/operation-not-supported-in-this-environment" ||
+            c === "auth/network-request-failed";
+          if (!fallback) throw err;
+          return doRedirect(provider);
         });
       }).then((cred) => {
         if (cred && cred.user) startSession({ uid: cred.user.uid, name: cred.user.displayName || "", email: cred.user.email || "" });
@@ -237,30 +236,22 @@
     function init() {
       if (started || !isConfigured()) return;
       started = true;
-      let wasIn = false;
       let pendingRedirect = false;
-      try {
-        wasIn = localStorage.getItem("quiz.cloud.wasIn") === "1";
-        pendingRedirect = localStorage.getItem(REDIRECT_FLAG) === "1";
-      } catch (e) {}
-      if (!wasIn && !pendingRedirect) return;
-      loadSdk().then((firebase) => {
-        initFb(firebase);
-        attachAuthListener();
-        if (pendingRedirect) {
-          try { localStorage.removeItem(REDIRECT_FLAG); } catch (e) {}
-          return fb.auth().getRedirectResult().then((res) => {
-            if (res && res.user && (!user || user.uid !== res.user.uid)) startSession(res.user);
-          });
-        }
-      }).catch(() => {});
+      try { pendingRedirect = localStorage.getItem(REDIRECT_FLAG) === "1"; } catch (e) {}
+      setTimeout(() => { ensureLoaded().catch(() => {}); }, 1200);
+      if (pendingRedirect) {
+        try { localStorage.removeItem(REDIRECT_FLAG); } catch (e) {}
+        ensureLoaded().then(() => fb.auth().getRedirectResult()).then((res) => {
+          if (res && res.user && (!user || user.uid !== res.user.uid)) startSession(res.user);
+        }).catch(() => {});
+      }
     }
 
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flush(); });
     window.addEventListener("beforeunload", flush);
 
     return {
-      isConfigured, init, signIn, signOut,
+      isConfigured, init, signIn, signOut, warm: () => { ensureLoaded().catch(() => {}); },
       user: () => user,
       isAdmin, ensureDb,
       fetchPublicCourses, publishCourses,
