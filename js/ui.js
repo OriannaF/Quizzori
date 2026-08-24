@@ -8,6 +8,18 @@
   let currentView = "inicio";
   let returnView = "inicio";
 
+  const HORARIOS = [
+    { mat: "Análisis Matemático II", com: "K2.1", dia: 1, ini: "16:35", fin: "18:05" },
+    { mat: "Análisis Matemático II", com: "K2.1", dia: 2, ini: "12:45", fin: "15:00" },
+    { mat: "Probabilidad y Estadística", com: "K3.2", dia: 1, ini: "18:10", fin: "20:25" },
+    { mat: "Probabilidad y Estadística", com: "K3.2", dia: 5, ini: "18:10", fin: "20:25" },
+    { mat: "Desarrollo de Software", com: "K3.1", dia: 4, ini: "16:35", fin: "22:35" },
+    { mat: "Diseño de Sistemas de Información", com: "K3.1", dia: 3, ini: "18:10", fin: "20:25" },
+    { mat: "Diseño de Sistemas de Información", com: "K3.1", dia: 3, ini: "20:25", fin: "22:40" },
+    { mat: "Planificación (Elec.)", com: "K3.4", dia: 2, ini: "18:10", fin: "22:40" }
+  ];
+  const DIAS_L = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
   const esc = (v) => String(v == null ? "" : v)
     .replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const rich = (v) => String(v == null ? "" : v)
@@ -136,22 +148,90 @@
     for (let i = 0; i < 4; i++) dots += `<span class="pomo-dot ${i < pomo.doneCount % 4 ? "done" : ""}"></span>`;
     dotsEl.innerHTML = dots;
     paintHomeStudyWidget();
+    paintFocusCard();
+  }
+
+  function pomoFinish(ann) {
+    clearInterval(pomo.timer);
+    pomo.timer = null;
+    pomo.running = false;
+    pomo.phase = pomoNextPhase();
+    pomo.remaining = pomoDur(pomo.phase);
+    if (ann) {
+      pomoBeep();
+      toast(`Pomodoro: ${pomoLabel()} — apretá play cuando estés listo`);
+      const box = document.getElementById("pomo");
+      if (box) box.classList.add("done");
+    }
+    pomoRender();
+    pomoStateSave();
   }
 
   function pomoTick() {
     pomo.remaining--;
     if (pomo.remaining > 0) { pomoRender(); pomoStateSave(); return; }
-    clearInterval(pomo.timer);
-    pomo.timer = null;
-    pomo.running = false;
-    pomo.remaining = pomoDur(pomo.phase);
-    pomo.phase = pomoNextPhase();
-    pomo.remaining = pomoDur(pomo.phase);
-    pomoBeep();
-    toast(`Pomodoro: ${pomoLabel()} — apretá play cuando estés listo`);
+    pomoFinish(true);
+  }
+
+  function pomoToggle() {
+    pomo.running = !pomo.running;
+    if (pomo.running) {
+      const box = document.getElementById("pomo");
+      if (box) box.classList.remove("done");
+      pomo.timer = setInterval(pomoTick, 1000);
+    } else if (pomo.timer) {
+      clearInterval(pomo.timer);
+      pomo.timer = null;
+    }
     pomoRender();
     pomoStateSave();
-    document.getElementById("pomo").classList.add("done");
+  }
+
+  function pomoReset() {
+    if (pomo.timer) { clearInterval(pomo.timer); pomo.timer = null; }
+    pomo.running = false;
+    pomo.remaining = pomoDur(pomo.phase);
+    const box = document.getElementById("pomo");
+    if (box) box.classList.remove("done");
+    pomoRender();
+    pomoStateSave();
+  }
+
+  function pomoSkip() {
+    if (pomo.timer) { clearInterval(pomo.timer); pomo.timer = null; }
+    pomo.running = false;
+    pomo.remaining = 0;
+    pomoFinish(false);
+  }
+
+  function paintFocusCard() {
+    const timeEl = document.getElementById("pf-time");
+    if (!timeEl) return;
+    const m = Math.floor(pomo.remaining / 60);
+    const s = pomo.remaining % 60;
+    const tstr = `${m}:${s < 10 ? "0" : ""}${s}`;
+    timeEl.textContent = tstr;
+    const phaseEl = document.getElementById("pf-phase");
+    if (phaseEl) phaseEl.textContent = pomoLabel().toUpperCase();
+    const total = pomoDur(pomo.phase) || 1;
+    const f = Math.max(0, Math.min(1, pomo.remaining / total));
+    const ring = document.getElementById("pf-ring");
+    if (ring) ring.style.strokeDashoffset = String(289 * (1 - f));
+    const card = document.getElementById("focus-card");
+    if (card) {
+      card.classList.toggle("running", pomo.running);
+      card.classList.toggle("break", pomo.phase !== "study");
+    }
+    const dotsWrap = document.getElementById("pf-dots");
+    if (dotsWrap) {
+      let dots = "";
+      for (let i = 0; i < 4; i++) dots += `<span class="fdot ${i < pomo.doneCount % 4 ? "on" : ""}"></span>`;
+      dotsWrap.innerHTML = dots;
+    }
+    const cap = document.getElementById("pf-cap");
+    if (cap) cap.textContent = `${pomo.doneCount % 4}/4 POMODOROS COMPLETADOS`;
+    const playBtn = document.getElementById("pf-play");
+    if (playBtn) playBtn.querySelector(".material-symbols-outlined").textContent = pomo.running ? "pause" : "play_arrow";
   }
 
   function initPomodoro() {
@@ -160,26 +240,8 @@
     if (pomo.remaining > pomoDur(pomo.phase)) pomo.remaining = pomoDur(pomo.phase);
     const box = document.getElementById("pomo");
     if (!box) return;
-    document.getElementById("pomo-play").addEventListener("click", () => {
-      box.classList.remove("done");
-      pomo.running = !pomo.running;
-      if (pomo.running) {
-        pomo.timer = setInterval(pomoTick, 1000);
-      } else if (pomo.timer) {
-        clearInterval(pomo.timer);
-        pomo.timer = null;
-      }
-      pomoRender();
-      pomoStateSave();
-    });
-    document.getElementById("pomo-reset").addEventListener("click", () => {
-      if (pomo.timer) { clearInterval(pomo.timer); pomo.timer = null; }
-      pomo.running = false;
-      pomo.remaining = pomoDur(pomo.phase);
-      box.classList.remove("done");
-      pomoRender();
-      pomoStateSave();
-    });
+    document.getElementById("pomo-play").addEventListener("click", pomoToggle);
+    document.getElementById("pomo-reset").addEventListener("click", pomoReset);
     const panel = document.getElementById("pomo-panel");
     document.getElementById("pomo-cfg").addEventListener("click", (e) => {
       e.stopPropagation();
@@ -315,17 +377,21 @@
     paint();
   }
 
+  const NAV_SEL = "#main-nav .nav-item, #bottom-nav .nav-item";
+
   function bindNav() {
-    document.querySelectorAll("#main-nav .nav-item").forEach((a) => {
+    document.querySelectorAll(NAV_SEL).forEach((a) => {
       a.addEventListener("click", (e) => {
         e.preventDefault();
         navigate(a.dataset.view);
       });
     });
+    const brand = document.getElementById("brand-home");
+    if (brand) brand.addEventListener("click", () => navigate("inicio"));
   }
 
   function paintNav() {
-    document.querySelectorAll("#main-nav .nav-item").forEach((a) => {
+    document.querySelectorAll(NAV_SEL).forEach((a) => {
       a.classList.toggle("active", a.dataset.view === currentView);
     });
   }
@@ -769,52 +835,246 @@
     </div>`;
   }
 
-  function renderHomeDates() {
-    const wrap = document.getElementById("home-dates");
+  function horarioHoyHTML() {
+    const now = new Date();
+    const mins = (h) => { const p = h.split(":"); return (+p[0]) * 60 + (+p[1]); };
+    const cur = now.getHours() * 60 + now.getMinutes();
+    const items = HORARIOS.filter((x) => x.dia === now.getDay())
+      .sort((a, b) => mins(a.ini) - mins(b.ini));
+    const cards = items.map((x) => {
+      const live = cur >= mins(x.ini) && cur < mins(x.fin);
+      const past = !live && cur >= mins(x.fin);
+      return `
+      <div class="sched-card${live ? " live" : ""}${past ? " past" : ""}">
+        <p class="sched-h mono-label">${x.ini} – ${x.fin}</p>
+        <p class="sched-mat">${esc(x.mat)}</p>
+        <div class="sched-sub">
+          <span class="material-symbols-outlined">badge</span>
+          <span>${esc(x.com)}</span>
+          ${live ? '<span class="live-pill">Ahora</span>' : ""}
+        </div>
+      </div>`;
+    }).join("");
+    return `
+    <section class="panel-sec">
+      <div class="sec-head-row">
+        <h2>Horario de Hoy</h2>
+        <span class="day-pill mono-label">${DIAS_L[now.getDay()].slice(0, 3)} ${now.getDate()} ${MONTHS_SHORT[now.getMonth()]}</span>
+      </div>
+      <div class="sched-grid">${cards || `<div class="empty-note">Hoy no tenés clases. Buen día para repasar.</div>`}</div>
+    </section>`;
+  }
+
+  function parcialesHomeHTML() {
+    const courses = loadCourses();
+    const exams = Quiz.courseExamsMap();
+    const horas = Quiz.courseExamsHoraMap();
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const rows = courses
+      .filter((c) => exams[c.id])
+      .map((c) => ({ c, d: new Date(exams[c.id] + "T12:00:00") }))
+      .filter((x) => !isNaN(x.d.getTime()))
+      .sort((a, b) => a.d - b.d)
+      .map(({ c, d }, i) => {
+        const days = Math.round((d - today) / 86400000);
+        const past = days < 0;
+        if (past && days < -30) return "";
+        const toneCls = i % 2 === 0 ? "t-green" : "t-blue";
+        return `
+        <div class="parcial-card" data-go-cursos role="button" tabindex="0">
+          <div class="pcal ${toneCls}${past ? " past" : ""}">
+            <span class="mon">${MONTHS_SHORT[d.getMonth()]}</span>
+            <span class="day">${d.getDate()}</span>
+          </div>
+          <div class="pc-info">
+            <h4>${esc(c.name)}</h4>
+            <div class="pc-sub"><span class="material-symbols-outlined">schedule</span><span>${horas[c.id] ? esc(horas[c.id]) : "Sin horario"}</span></div>
+          </div>
+          <div class="pdays${past ? " past" : ""}"><b>${Math.max(0, days)}</b><span>días</span></div>
+        </div>`;
+      }).join("");
+    return `
+    <section class="panel-sec">
+      <div class="sec-head-row">
+        <div class="sec-title"><span class="material-symbols-outlined">event</span><h2>Próximos Parciales</h2></div>
+        <button class="link-btn icon" id="btn-parciales-add" title="Editar fechas en Materias"><span class="material-symbols-outlined">add</span></button>
+      </div>
+      ${rows || `<div class="empty-note">No hay fechas cargadas. Cargalas desde Materias.</div>`}
+    </section>`;
+  }
+
+  function tasksList() {
+    try {
+      const arr = window.QuizStore.loadTasks();
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) { return []; }
+  }
+
+  function saveTasksList(list) {
+    try { window.QuizStore.saveTasks(list.slice(0, 50)); } catch (e) {}
+  }
+
+  function tareasHTML() {
+    const list = tasksList().slice().sort((a, b) => (a.done - b.done) || ((b.ts || 0) - (a.ts || 0)));
+    const mats = loadCourses();
+    const rows = list.map((t) => `
+      <label class="task-row${t.done ? " done" : ""}">
+        <input type="checkbox" data-task-check="${t.id}"${t.done ? " checked" : ""}>
+        <span class="task-txt">${esc(t.txt)}</span>
+        ${t.mat ? `<span class="task-tag mono-label">${esc(t.mat)}</span>` : ""}
+        <button class="task-del" data-task-del="${t.id}" type="button" title="Borrar tarea"><span class="material-symbols-outlined">close</span></button>
+      </label>`).join("");
+    return `
+    <section class="panel-sec">
+      <div class="sec-head-row">
+        <div class="sec-title"><span class="material-symbols-outlined">checklist</span><h2>Lista de Tareas</h2></div>
+        <button class="link-btn" id="btn-task-new"><span class="material-symbols-outlined">add</span>Nueva</button>
+      </div>
+      <div class="tasks-list">${rows || `<div class="empty-note">Sin tareas. Sumá una con «Nueva».</div>`}</div>
+      <div class="task-add" id="task-add" hidden>
+        <input class="input sm" id="task-new-txt" maxlength="120" placeholder="¿Qué tenés que hacer?">
+        <label class="field-label visually-hidden" for="task-new-mat">Materia</label>
+        <select class="input sm" id="task-new-mat">
+          <option value="">General</option>
+          ${mats.map((m) => `<option value="${esc(m.name)}">${esc(m.name)}</option>`).join("")}
+        </select>
+        <button class="btn primary sm" id="task-new-save" type="button">Agregar</button>
+      </div>
+    </section>`;
+  }
+
+  function bindTareas() {
+    const btnNew = document.getElementById("btn-task-new");
+    const addRow = document.getElementById("task-add");
+    if (!btnNew || !addRow) return;
+    btnNew.addEventListener("click", () => {
+      addRow.hidden = !addRow.hidden;
+      if (!addRow.hidden) {
+        const txt = document.getElementById("task-new-txt");
+        if (txt) txt.focus();
+      }
+    });
+    const btnSave = document.getElementById("task-new-save");
+    if (btnSave) btnSave.addEventListener("click", () => {
+      const txtEl = document.getElementById("task-new-txt");
+      const matEl = document.getElementById("task-new-mat");
+      const txt = txtEl ? txtEl.value.trim() : "";
+      if (!txt) { toast("Escribí la tarea primero."); return; }
+      const list = tasksList();
+      list.push({ id: Date.now().toString(36), txt, mat: matEl ? matEl.value : "", done: false, ts: Date.now() });
+      saveTasksList(list);
+      renderTareas();
+    });
+    document.querySelectorAll("[data-task-check]").forEach((c) => {
+      c.addEventListener("change", () => {
+        const list = tasksList();
+        const t = list.find((x) => x.id === c.dataset.taskCheck);
+        if (t) { t.done = c.checked; saveTasksList(list); renderTareas(); }
+      });
+    });
+    document.querySelectorAll("[data-task-del]").forEach((b) => {
+      b.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        saveTasksList(tasksList().filter((x) => x.id !== b.dataset.taskDel));
+        renderTareas();
+      });
+    });
+  }
+
+  function renderTareas() {
+    const wrap = document.getElementById("home-tareas");
     if (!wrap) return;
-    wrap.innerHTML = fechasBoxHTML("home");
-    bindFechasBox("home");
+    wrap.innerHTML = tareasHTML();
+    bindTareas();
   }
 
   function renderHome() {
     const qs = S().questionnaires;
-    const stats = qs.map((qq) => Quiz.statsFor(qq.hash)).filter(Boolean);
 
     const activeCards = qs.map((qq, i) => {
-      const st = stats.find((s) => s.hash === qq.hash);
+      const st = Quiz.statsFor(qq.hash);
       if (!st) return "";
       return activeCardHTML(qq, i, st);
     }).join("");
 
     view(`
-      <section class="home-section">
-        <div class="sec-head">
-          <span class="material-symbols-outlined">bolt</span>
-          <div>
-            <h2>Quizz activo</h2>
-            <p class="muted small sub">Arrancá una práctica en un clic</p>
+      <div class="home-wrap">
+        <div class="home-grid">
+          <div class="hg-main">
+            ${horarioHoyHTML()}
+            <section class="panel-sec">
+              <div class="sec-head-row">
+                <div class="sec-title"><span class="material-symbols-outlined">bolt</span><h2>Quizzes activos</h2></div>
+                <button class="link-btn" id="btn-ver-todos">Ver todos</button>
+              </div>
+              <div class="exam-grid cols-2">${activeCards || `
+                <div class="card center">
+                  <h2>Nada por acá todavía</h2>
+                  <p class="muted">Subí un CSV desde la sección Materias para crear tu primer cuestionario.</p>
+                  <button class="btn primary" id="btn-empty-cursos">Ir a Materias <span class="material-symbols-outlined">arrow_forward</span></button>
+                </div>`}</div>
+            </section>
           </div>
-        </div>
-        <div class="layout">
-          <div class="col-main"><div class="exam-grid cols-2">${activeCards || `
-            <div class="card center">
-              <h2>Nada por acá todavía</h2>
-              <p class="muted">Subí un CSV desde la sección Materias para crear tu primer cuestionario.</p>
-              <button class="btn primary" id="btn-empty-cursos">Ir a Materias <span class="material-symbols-outlined">arrow_forward</span></button>
-            </div>`}</div>
-          </div>
-          <aside class="col-side">
-            ${studyWidgetHTML()}
-            <div id="home-dates"></div>
+          <aside class="hg-side">
+            <div class="focus-wrap">
+              <section class="focus-card" id="focus-card">
+                <div class="fc-head">
+                  <h3>Modo Enfoque</h3>
+                  <button class="icon-btn ghost" id="pf-cfg" type="button" title="Configurar pomodoro"><span class="material-symbols-outlined">more_vert</span></button>
+                </div>
+                <div class="fc-ring">
+                  <svg viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="46" fill="none" stroke="var(--panel-hi)" stroke-width="5"></circle>
+                    <circle id="pf-ring" cx="50" cy="50" r="46" fill="none" stroke="var(--accent-soft)" stroke-width="6"
+                      stroke-linecap="round" stroke-dasharray="289" stroke-dashoffset="0" transform="rotate(-90 50 50)"></circle>
+                  </svg>
+                  <div class="fc-center">
+                    <span class="fc-time mono-label" id="pf-time">25:00</span>
+                    <span class="fc-phase mono-label" id="pf-phase">Estudio</span>
+                  </div>
+                </div>
+                <div class="fc-controls">
+                  <button class="round-btn sm" id="pf-reset" type="button" title="Reiniciar fase"><span class="material-symbols-outlined">replay</span></button>
+                  <button class="round-btn lg" id="pf-play" type="button" title="Iniciar / Pausar"><span class="material-symbols-outlined">play_arrow</span></button>
+                  <button class="round-btn sm" id="pf-skip" type="button" title="Saltar fase"><span class="material-symbols-outlined">skip_next</span></button>
+                </div>
+                <div class="fc-dots" id="pf-dots"></div>
+                <span class="mono-label muted fc-cap" id="pf-cap">0/4 POMODOROS COMPLETADOS</span>
+              </section>
+            </div>
           </aside>
         </div>
-      </section>
+        <div class="home-bottom">
+          <div id="home-dates">${parcialesHomeHTML()}</div>
+          <div id="home-tareas">${tareasHTML()}</div>
+        </div>
+      </div>
     `);
-    renderHomeDates();
-    paintHomeStudyWidget();
+
+    paintFocusCard();
     qs.forEach((qq) => bindExamCard(qq.hash, qq));
+    bindTareas();
+    const verTodos = document.getElementById("btn-ver-todos");
+    if (verTodos) verTodos.addEventListener("click", () => navigate("cursos"));
     const emptyBtn = document.getElementById("btn-empty-cursos");
     if (emptyBtn) emptyBtn.addEventListener("click", () => navigate("cursos"));
+    const parAdd = document.getElementById("btn-parciales-add");
+    if (parAdd) parAdd.addEventListener("click", () => navigate("cursos"));
+    document.querySelectorAll("[data-go-cursos]").forEach((el) => {
+      el.addEventListener("click", () => navigate("cursos"));
+    });
+    const pfCfg = document.getElementById("pf-cfg");
+    if (pfCfg) pfCfg.addEventListener("click", () => {
+      const cfg = document.getElementById("pomo-cfg");
+      if (cfg) cfg.click();
+    });
+    const pfPlay = document.getElementById("pf-play");
+    if (pfPlay) pfPlay.addEventListener("click", pomoToggle);
+    const pfReset = document.getElementById("pf-reset");
+    if (pfReset) pfReset.addEventListener("click", pomoReset);
+    const pfSkip = document.getElementById("pf-skip");
+    if (pfSkip) pfSkip.addEventListener("click", pomoSkip);
   }
 
   function loadCourses() {

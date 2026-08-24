@@ -34,8 +34,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const $ = (s) => w.document.querySelector(s);
   const log = (k, v) => console.log(k.padEnd(34), v);
 
-  log("study widget painted", $("#hp-time").textContent !== "--:--" ? "OK (" + $("#hp-time").textContent + ")" : "FAIL");
-  log("home dates widget", !!$("#home-dates .widget") ? "OK" : "missing (ok si no hay fechas)");
+  log("focus card pintada", $("#pf-time") && $("#pf-time").textContent !== "" ? "OK (" + $("#pf-time").textContent + ")" : "FAIL");
+  log("home parciales", !!($("#home-dates .parcial-card") || $("#home-dates .empty-note")) ? "OK" : "FAIL");
+  log("home tareas", !!($("#home-tareas .task-row") || $("#home-tareas .empty-note")) ? "OK" : "FAIL");
 
   const csvMini = [
     "pregunta,categoria,opcion1,opcion2,opcion3,opcion4,correctas,explicacion",
@@ -102,7 +103,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     if (el) el.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
   }
   await sleep(100);
-  log("back to view", $("#app").textContent.includes("Quizz activo") ? "OK" : "FAIL");
+  log("back to view", $("#app").textContent.includes("Horario de Hoy") ? "OK" : "FAIL");
 
   click2('#main-nav [data-view="cursos"]');
   await sleep(50);

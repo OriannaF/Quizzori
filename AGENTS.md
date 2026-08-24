@@ -17,14 +17,14 @@ No hay framework ni bundler: lo que está en `js/` va directo al browser.
 
 | Archivo | Rol |
 |---|---|
-| `index.html` | Shell único: sidebar + topbar constante + `<main id="app">`. Router client-side por vistas, no hay rutas URL. |
+| `index.html` | Shell único: header superior fijo (brand + nav desktop `#main-nav` + pomodoro/tema/cuenta) + `<main id="app">` + bottom nav móvil (`#bottom-nav`). Router client-side por vistas, no hay rutas URL. |
 | `css/style.css` | Sistema "Dark Fidelity" completo (tokens al inicio, tema claro vía overrides en `html.light`). |
 | `js/csv.js` | Parseo de CSV de preguntas → `questionnaires`. Tipos: select (columnas de opciones + índices), completar (sin opciones), dropdown (`opciones` + `respuestaN`) y relacione (`correctas` con textos `;`-separados en el orden de las afirmaciones: las afirmaciones son las demás celdas con texto de la fila y el menú se arma con esa lista; alternativa legada: pares `a=b` posicionales sobre las celdas, puede desbordar columnas sin encabezado) |
 | `js/storage.js` (`QuizStore`) | localStorage + snapshot/restore para sync. Claves `quiz.*`. Exporta también para Node (`module.exports`). |
-| `js/scheduler.js` | Repetición espaciada: qué toca repasar hoy |
+| `js/scheduler.js` | Repetición espaciada: qué toca repasar hoy (buscar SIEMPRE preguntas por id vía `byIdMap`, no por posición del array) |
 | `js/quiz.js` (`Quiz`) | Estado y lógica de sesión: modos, respuestas, submit, drafts |
 | `js/cloud.js` (`Cloud`) | Firebase Auth (Google) + Firestore sync del progreso (`/users/{uid}`) + colección pública `courses` (materias visibles para todos, escritura solo admin). Config dentro del archivo. |
-| `js/ui.js` (`UI`) | TODO el render y routing de vistas: `inicio`, `cursos`, `progreso`, quiz, resultados, calendario, pomodoro, cloud UI |
+| `js/ui.js` (`UI`) | TODO el render y routing de vistas: `inicio` (horario hoy desde const `HORARIOS`, quizzes, tarjeta pomodoro "Modo Enfoque" que comparte estado con la del header, parciales solo lectura, tareas), `cursos`, `progreso`, quiz, resultados, calendario, pomodoro, cloud UI |
 
 Datos: `data/*.csv` — un CSV = un cuestionario ("Final ADS" 278 preguntas, "Burpleria").
 
@@ -57,7 +57,7 @@ Datos: `data/*.csv` — un CSV = un cuestionario ("Final ADS" 278 preguntas, "Bu
 ## Convenciones
 
 - **Cache busting**: al cambiar cualquier css/js, subir `?v=N` en index.html
-  (actualmente `v=15`). GitHub Pages cachea agresivo.
+  (actualmente `v=32`). GitHub Pages cachea agresivo.
 - Sin comentarios en el código salvo headers instructivos (como el de cloud.js).
 - Strings de UI siempre en español rioplatense (vos, tenés, hacé).
 - URLs externas: validar esquema http/https (ver `safeUrl`), nunca `javascript:`.

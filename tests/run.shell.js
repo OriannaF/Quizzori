@@ -41,13 +41,13 @@ const click = (sel) => {
   const log = (k, v) => console.log(k.padEnd(34), v);
 
   log("questionnaires loaded", w.Quiz.S.questionnaires.map(q => q.name + ":" + q.questions.length).join(", ") || "NONE");
-  log("initial view", $("#app").textContent.includes("Quizz activo") ? "inicio OK" : "NOT inicio");
+  log("initial view", $("#app").textContent.includes("Horario de Hoy") && $("#app").textContent.includes("Quizzes activos") ? "inicio OK" : "NOT inicio");
 
   for (const v of ["cursos", "progreso", "inicio"]) {
     click(`#main-nav [data-view="${v}"]`);
     await sleep(50);
   }
-  log("nav round-trip", $("#app").textContent.includes("Quizz activo") ? "OK" : "FAIL");
+  log("nav round-trip", $("#app").textContent.includes("Horario de Hoy") ? "OK" : "FAIL");
   log("nav active state", $('#main-nav [data-view="inicio"]').classList.contains("active") ? "OK" : "FAIL");
   log("topbar stable", $("#pomo-time").textContent === "25:00" && $("#top-date") ? "OK" : "FAIL");
 
@@ -83,7 +83,7 @@ const click = (sel) => {
     }
     click("#btn-exit");
     await sleep(50);
-    log("exit returns view", $("#app").textContent.includes("Quizz activo") ? "OK" : "FAIL");
+    log("exit returns view", $("#app").textContent.includes("Horario de Hoy") ? "OK" : "FAIL");
   } else {
     log("start button", "NOT FOUND");
   }
