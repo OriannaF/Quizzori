@@ -62,6 +62,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     && trel.slotLabels === true ? "OK" : "FAIL");
   log("csv normal intacto", normQ && normQ.type === "select" && normQ.correct.join() === "1" ? "OK" : "FAIL");
 
+  const Sch = w.Scheduler;
+  const qsF = [
+    { id: 0, text: "A", options: ["x", "y"], correct: [0], category: "C1" },
+    { id: 7, text: "B", options: ["x", "y"], correct: [1], category: "C2" }
+  ];
+  const filtradas = qsF.filter((q) => q.category === "C2");
+  const itemsF = Sch.buildByMode(filtradas, {}, "all", 0);
+  log("sesion por categoria", itemsF.length === 1 && itemsF[0].q === filtradas[0] ? "OK" : "FAIL");
+
   const startBtn = $('[id^="btn-start-"]');
   startBtn.click();
   await sleep(100);

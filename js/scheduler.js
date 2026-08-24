@@ -109,15 +109,22 @@ const Scheduler = (() => {
     return { unseen, due, rest };
   };
 
+  const byIdMap = (questions) => {
+    const m = new Map();
+    questions.forEach((q) => m.set(q.id, q));
+    return m;
+  };
+
   function buildSession(questions, progress, size, now) {
     const { unseen, due, rest } = splitPools(questions, progress, now);
+    const byId = byIdMap(questions);
     const pool = [].concat(
       unseen.sort(weakSort(progress)),
       due.sort(weakSort(progress)),
       rest.sort(weakSort(progress))
     );
     const n = size > 0 ? Math.min(size, pool.length) : pool.length;
-    return shuffle(pool.slice(0, n)).map((qid) => makeItem(questions[qid]));
+    return shuffle(pool.slice(0, n)).map((qid) => makeItem(byId.get(qid)));
   }
 
   function buildFailedSession(questions, progress, size, fullPoints) {
@@ -125,13 +132,15 @@ const Scheduler = (() => {
       const c = progress[q.id];
       return c && c.last !== undefined && c.last < fullPoints - 1e-9;
     }).map((q) => q.id);
+    const byId = byIdMap(questions);
     const n = size > 0 ? Math.min(size, ids.length) : ids.length;
-    return shuffle(ids.sort(weakSort(progress)).slice(0, n)).map((qid) => makeItem(questions[qid]));
+    return shuffle(ids.sort(weakSort(progress)).slice(0, n)).map((qid) => makeItem(byId.get(qid)));
   }
 
   function buildByMode(questions, progress, mode, size, now, fullPoints) {
     const { unseen, due, rest } = splitPools(questions, progress, now);
-    const qidToItem = (qid) => makeItem(questions[qid]);
+    const byId = byIdMap(questions);
+    const qidToItem = (qid) => makeItem(byId.get(qid));
     const cap = (ids) => {
       const n = size > 0 ? Math.min(size, ids.length) : ids.length;
       return shuffle(ids.slice(0, n)).map(qidToItem);
