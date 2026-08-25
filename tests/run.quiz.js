@@ -36,7 +36,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   log("pomodoro header", $("#pomo-time") && $("#pomo-time").textContent !== "" ? "OK (" + $("#pomo-time").textContent + ")" : "FAIL");
   log("sin focus card", !$("#pf-time") ? "OK" : "FAIL");
-  log("home evaluaciones anon ocultas", !$("#home-dates .eval-list") && !$(".hg-side .widget") ? "OK" : "FAIL");
+  log("home evaluaciones anon visibles", $("#home-dates .eval-list") && $(".hg-side .widget") ? "OK" : "FAIL");
   log("home tareas", !!($("#home-tareas .task-row") || $("#home-tareas .empty-note")) ? "OK" : "FAIL");
 
   const csvMini = [
@@ -63,6 +63,18 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     && trel.correctSlot.join("|") === "0|1"
     && trel.slotLabels === true ? "OK" : "FAIL");
   log("csv normal intacto", normQ && normQ.type === "select" && normQ.correct.join() === "1" ? "OK" : "FAIL");
+
+  const csvDrop = [
+    "pregunta,categoria,opciones,respuesta1,respuesta2,correctas,explicacion",
+    'Drop con comillas?,Cat,"alpha";"beta";"gamma",beta,alpha,2,'
+  ].join("\n");
+  const prDrop = w.CSV.parseQuestions(csvDrop);
+  const dq2 = prDrop.questions[0];
+  log("csv dropdown sin comillas", dq2 && dq2.type === "dropdown"
+    && dq2.dropdown.join("|") === "alpha|beta|gamma"
+    && dq2.slots.join("|") === "beta|alpha"
+    && dq2.correctSlot.join("|") === "1|0"
+    && !prDrop.warnings.length ? "OK" : "FAIL " + JSON.stringify(prDrop.warnings));
 
   const Sch = w.Scheduler;
   const qsF = [

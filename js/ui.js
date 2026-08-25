@@ -482,6 +482,7 @@
   }
 
   let uploadCtx = null;
+  let conexData = null;
 
   function readFile(file) {
     const reader = new FileReader();
@@ -909,7 +910,6 @@
   }
 
   function nextEvalsHTML() {
-    if (!isOwner()) return "";
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const rows = AGENDA
       .map((x) => ({ x, d: evalDateOf(x.fecha) }))
@@ -946,7 +946,6 @@
   }
 
   function agendaHTML() {
-    if (!isOwner()) return "";
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const rows = AGENDA.map((x) => {
       const d = evalDateOf(x.fecha);
@@ -1085,11 +1084,11 @@
           </div>
           <aside class="hg-side">
             ${nextEvalsHTML()}
+            <div id="home-tareas">${tareasHTML()}</div>
           </aside>
         </div>
         <div class="home-bottom">
           <div id="home-dates">${agendaHTML()}</div>
-          <div id="home-tareas">${tareasHTML()}</div>
         </div>
       </div>
     `);
@@ -1733,9 +1732,178 @@
     if (warnClose) warnClose.addEventListener("click", () => { warningsDismissed = true; refreshView(); });
   }
 
+  function conexLoad() {
+    const C = window.Conex;
+    const today = C.dayKey(new Date());
+    const pool = C.buildPool(S().questionnaires);
+    if (pool.length < 4) return { pool: [] };
+    let saved = null;
+    try { saved = window.QuizStore.loadGameStats(); } catch (e) {}
+    if (saved && saved.day === today && saved.board) {
+      return { pool, today, stats: saved, state: saved.board, scored: !!saved.board.done };
+    }
+    const puzzle = C.makeDaily(pool, today);
+    const fresh = puzzle ? C.newGame(puzzle) : null;
+    return { pool, today, stats: saved || {}, state: fresh, scored: false };
+  }
+
+  function conexPersist(data) {
+    try {
+      if (data.state && data.state.done && !data.scored) {
+        data.stats = window.Conex.applyResult(Object.assign({}, data.stats || {}), data.state.won, data.state.wrong, data.today);
+        delete data.stats.board;
+        data.scored = true;
+      }
+      const s = Object.assign({}, data.stats || {}, { day: data.today, board: data.state });
+      window.QuizStore.saveGameStats(s);
+    } catch (e) {}
+  }
+
+  function conexStatsObj() {
+    try {
+      const s = window.QuizStore.loadGameStats();
+      return s && typeof s === "object" ? s : {};
+    } catch (e) { return {}; }
+  }
+
+  function paintConexBoard() {
+    const root = document.getElementById("cx-board");
+    if (!root) return;
+    const data = conexData;
+    const C = window.Conex;
+    if (!data.pool || !data.pool.length) {
+      root.innerHTML = `
+        <div class="card center">
+          <h2>Nada para armar todavía</h2>
+          <p class="muted">Conexiones se arma con los conceptos de tus preguntas de cruce o dropdown. Necesito al menos 4 grupos.</p>
+          <button class="btn primary" id="cx-go-cursos">Ir a Materias <span class="material-symbols-outlined">arrow_forward</span></button>
+        </div>`;
+      const b = document.getElementById("cx-go-cursos");
+      if (b) b.addEventListener("click", () => navigate("cursos"));
+      return;
+    }
+    const st = data.state;
+    const solvedIdx = new Set(st.solved.flatMap((s) => s.idxs));
+    const remaining = st.puzzle.tiles.map((t, i) => ({ t, i })).filter((x) => !solvedIdx.has(x.i));
+    const selSet = new Set(st.sel);
+    const livesDots = [0, 1, 2, 3].map((i) => `<span class="cx-life${i < st.lives ? "" : " off"}"></span>`).join("");
+    const groupsHTML = st.solved.map((s) => `
+      <div class="cx-group g${s.g}">
+        <div class="cx-group-title">${esc(st.puzzle.groups[s.g])}</div>
+        <div class="cx-group-words">${s.idxs.map((i) => esc(st.puzzle.tiles[i].t)).join(" · ")}</div>
+      </div>`).join("");
+    const tilesHTML = remaining.map(({ t, i }) => `
+      <button type="button" class="cx-tile${selSet.has(i) ? " sel" : ""}" data-cx="${i}">${esc(t.t)}</button>`).join("");
+    const resultHTML = !st.done ? "" : `
+      <div class="cx-result ${st.won ? "win" : "lose"}">
+        <h3>${st.won ? ["¡Impecable!", "¡Muy bien!", "Bien ahí", "Justo", "Al límite"][st.wrong] : "Se terminaron los intentos"}</h3>
+        ${st.solved.length < 4 ? `<div class="cx-missing">${[0, 1, 2, 3].filter((g) => !st.solved.some((s) => s.g === g)).map((g) => `
+          <div class="cx-group g${g}"><div class="cx-group-title">${esc(st.puzzle.groups[g])}</div><div class="cx-group-words">${st.puzzle.tiles.filter((t) => t.g === g).map((t) => esc(t.t)).join(" · ")}</div></div>`).join("")}</div>` : ""}
+        <button class="btn primary" id="cx-share" type="button">Copiar resultado</button>
+        <p class="muted small">Volvé mañana con un puzzle nuevo</p>
+      </div>`;
+    root.innerHTML = `
+      <div class="cx-solved">${groupsHTML}</div>
+      ${resultHTML}
+      ${!st.done ? `<div class="cx-msg" id="cx-msg"></div>
+      <div class="cx-grid" id="cx-grid">${tilesHTML}</div>
+      <div class="cx-actions">
+        <button class="btn sm" id="cx-shuffle" type="button">Mezclar</button>
+        <button class="btn sm" id="cx-clear" type="button"${st.sel.length ? "" : " disabled"}>Limpiar</button>
+        <button class="btn primary sm" id="cx-submit" type="button"${st.sel.length === 4 ? "" : " disabled"}>Enviar</button>
+      </div>` : ""}
+    `;
+    document.querySelectorAll("[data-cx]").forEach((b) => {
+      b.addEventListener("click", () => {
+        C.toggleSel(st, parseInt(b.dataset.cx, 10));
+        paintConexBoard();
+      });
+    });
+    const shuffleBtn = document.getElementById("cx-shuffle");
+    if (shuffleBtn) shuffleBtn.addEventListener("click", () => {
+      C.shuffleBoard(st);
+      paintConexBoard();
+    });
+    const clearBtn = document.getElementById("cx-clear");
+    if (clearBtn) clearBtn.addEventListener("click", () => {
+      C.clearSel(st);
+      paintConexBoard();
+    });
+    const submitBtn = document.getElementById("cx-submit");
+    if (submitBtn) submitBtn.addEventListener("click", () => {
+      const res = C.submitSel(st);
+      const msgEl0 = document.getElementById("cx-msg");
+      if (res === "close") { if (msgEl0) msgEl0.textContent = "¡Una más y formás grupo!"; }
+      else if (res === "bad") { if (msgEl0) msgEl0.textContent = "No es grupo."; }
+      if (res === "bad" || res === "close") {
+        document.querySelectorAll("[data-cx].sel").forEach((b) => b.classList.remove("sel"));
+        submitBtn.disabled = true;
+        const clearB = document.getElementById("cx-clear");
+        if (clearB) clearB.disabled = true;
+        const grid = document.getElementById("cx-grid");
+        if (grid) {
+          grid.classList.add("shake");
+          grid.addEventListener("animationend", () => grid.classList.remove("shake"), { once: true });
+        }
+        setTimeout(() => { const m = document.getElementById("cx-msg"); if (m && !data.state.done) m.textContent = ""; }, 1600);
+        conexPersist(data);
+        updateConexLives();
+        return;
+      }
+      conexPersist(data);
+      paintConexBoard();
+    });
+    const shareBtn = document.getElementById("cx-share");
+    if (shareBtn) shareBtn.addEventListener("click", () => {
+      const txt = `Conexiones · ${data.today}\n` + C.shareGrid(st) + `\nRacha: ${conexStatsObj().streak || 0}`;
+      const done = () => toast("Resultado copiado.");
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, done);
+      else done();
+    });
+  }
+
+  function updateConexLives() {
+    const el = document.querySelector(".cx-lives");
+    if (!el || !conexData || !conexData.state) return;
+    el.innerHTML = [0, 1, 2, 3].map((i) => `<span class="cx-life${i < conexData.state.lives ? "" : " off"}"></span>`).join("");
+  }
+
+  function renderJuegos() {
+    conexData = conexLoad();
+    const data = conexData;
+    const todayLabel = new Date().toLocaleDateString("es-AR", { day: "numeric", month: "long" });
+    const hasGame = data.pool && data.pool.length >= 4;
+    const st = data.state;
+    const statsRow = !hasGame ? "" : (() => {
+      const s = st.done ? conexStatsObj() : {};
+      return `
+      <section class="home-section cx-stats-row">
+        <div class="stat-card"><div class="stat-ic"><span class="material-symbols-outlined">local_fire_department</span></div><div><p class="lbl">Racha</p><p class="big">${s.streak || 0}</p></div></div>
+        <div class="stat-card"><div class="stat-ic green"><span class="material-symbols-outlined">emoji_events</span></div><div><p class="lbl">Ganados</p><p class="big">${s.wins || 0}</p></div></div>
+        <div class="stat-card"><div class="stat-ic amber"><span class="material-symbols-outlined">grid_view</span></div><div><p class="lbl">Jugadas</p><p class="big">${s.played || 0}</p></div></div>
+      </section>`;
+    })();
+    view(`
+      <div class="cx-wrap">
+        <section class="cx-hero">
+          <div class="mono-label muted">Juego diario · ${esc(todayLabel)}</div>
+          <h2>Conexiones</h2>
+          <p class="muted small">Encontrá los 4 grupos de 4 conceptos — salen de tu material</p>
+          ${hasGame && !st.done ? `<div class="cx-lives"></div>` : ""}
+        </section>
+        <div id="cx-board"></div>
+        ${statsRow}
+      </div>
+    `);
+    if (hasGame) updateConexLives();
+    paintConexBoard();
+    if (hasGame) conexPersist(data);
+  }
+
   RENDERERS.inicio = renderHome;
   RENDERERS.cursos = renderCursos;
   RENDERERS.progreso = renderProgreso;
+  RENDERERS.juegos = renderJuegos;
 
   const isoOf = (y, m, d) => new Date(y, m, d, 12).toISOString().slice(0, 10);
 
@@ -1917,6 +2085,7 @@
     const res = Quiz.submit();
     document.body.classList.remove("quiz-open");
     renderResults(res);
+    window.scrollTo(0, 0);
   }
 
   function explainBlock(txt) {

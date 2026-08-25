@@ -82,6 +82,9 @@ const QuizStore = (() => {
   function loadTasks() { return get("quiz.tasks", []); }
   function saveTasks(t) { set("quiz.tasks", Array.isArray(t) ? t : []); }
 
+  function loadGameStats() { return get("quiz.game.connections", {}); }
+  function saveGameStats(s) { set("quiz.game.connections", s && typeof s === "object" ? s : {}); }
+
   function snapshot() {
     const kv = {}, times = {};
     try {
@@ -116,6 +119,7 @@ const QuizStore = (() => {
     loadCourses, saveCourses, loadCourseExams, saveCourseExams,
     loadCourseExamHoras, saveCourseExamHoras,
     loadTasks, saveTasks,
+    loadGameStats, saveGameStats,
     snapshot, restore, onChange
   };
 })();

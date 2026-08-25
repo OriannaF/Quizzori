@@ -18,7 +18,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,500,1,0&display=swap" rel="stylesheet">
   <link rel="preload" as="fetch" href="data/cuestionario.csv">
   <link rel="preload" as="fetch" href="data/cuestionario%20Burpleria.csv">
-  <link rel="stylesheet" href="css/style.css?v=36">
+  <link rel="stylesheet" href="css/style.css?v=40">
 </head>
 <body>
   <div class="bg-glow" aria-hidden="true">
@@ -43,6 +43,9 @@
           </a>
           <a href="#" class="nav-item" data-view="progreso">
             <span class="material-symbols-outlined">query_stats</span><span>Progreso</span>
+          </a>
+          <a href="#" class="nav-item" data-view="juegos">
+            <span class="material-symbols-outlined">extension</span><span>Juegos</span>
           </a>
         </nav>
       </div>
@@ -100,14 +103,18 @@
     <a href="#" class="nav-item" data-view="progreso">
       <span class="material-symbols-outlined">leaderboard</span><span>Progreso</span>
     </a>
+    <a href="#" class="nav-item" data-view="juegos">
+      <span class="material-symbols-outlined">extension</span><span>Juegos</span>
+    </a>
   </nav>
 
-  <script src="js/storage.js?v=36"></script>
-  <script src="js/csv.js?v=36"></script>
-  <script src="js/scheduler.js?v=36"></script>
-  <script src="js/quiz.js?v=36"></script>
-  <script src="js/cloud.js?v=36"></script>
-  <script src="js/ui.js?v=36"></script>
+  <script src="js/storage.js?v=40"></script>
+  <script src="js/csv.js?v=40"></script>
+  <script src="js/scheduler.js?v=40"></script>
+  <script src="js/quiz.js?v=40"></script>
+  <script src="js/game.js?v=40"></script>
+  <script src="js/cloud.js?v=40"></script>
+  <script src="js/ui.js?v=40"></script>
   <script>
     document.addEventListener("DOMContentLoaded", function () {
       window.UI.init();

@@ -192,12 +192,16 @@ const CSV = (() => {
       }
 
       if (isDropdown) {
+        const unquote = (t) => {
+          const s = String(t || "").trim();
+          return s.length > 1 && s.startsWith('"') && s.endsWith('"') ? s.slice(1, -1).trim() : s;
+        };
         const optsRaw = oi >= 0 ? String(row[oi] || "").trim() : "";
-        const dropdown = optsRaw ? optsRaw.split(/[;|]/).map((t) => t.trim()).filter(Boolean) : [];
+        const dropdown = optsRaw ? optsRaw.split(/[;|]/).map((t) => unquote(t)).filter(Boolean) : [];
         const slotVals = [];
         const slotErrors = [];
         for (const sc of slotCols) {
-          const v = String(row[sc.i] || "").trim();
+          const v = unquote(String(row[sc.i] || ""));
           if (!v) continue;
           const idx = dropdown.indexOf(v);
           if (idx < 0) slotErrors.push(`'${v}' no está en la lista de opciones`);

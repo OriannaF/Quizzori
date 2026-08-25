@@ -24,6 +24,7 @@ No hay framework ni bundler: lo que está en `js/` va directo al browser.
 | `js/scheduler.js` | Repetición espaciada: qué toca repasar hoy (buscar SIEMPRE preguntas por id vía `byIdMap`, no por posición del array) |
 | `js/quiz.js` (`Quiz`) | Estado y lógica de sesión: modos, respuestas, submit, drafts |
 | `js/cloud.js` (`Cloud`) | Firebase Auth (Google) + Firestore sync del progreso (`/users/{uid}`) + colección pública `courses` (materias visibles para todos, escritura solo admin). Config dentro del archivo. |
+| `js/game.js` (`Conex`) | Juego diario "Conexiones" estilo NYT: arma puzzles de 4 grupos con los conceptos de preguntas relacione/dropdown de los cuestionarios cargados. Lógica pura (seed por fecha), la vista vive en ui.js (`renderJuegos`, vista `juegos`). Stats/racha en `quiz.game.connections`. |
 | `js/ui.js` (`UI`) | TODO el render y routing de vistas: `inicio` (horario hoy desde const `HORARIOS`, quizzes, tarjeta pomodoro "Modo Enfoque" que comparte estado con la del header, parciales solo lectura, tareas), `cursos`, `progreso`, quiz, resultados, calendario, pomodoro, cloud UI |
 
 Datos: `data/*.csv` — un CSV = un cuestionario ("Final ADS" 278 preguntas, "Burpleria").
@@ -57,7 +58,7 @@ Datos: `data/*.csv` — un CSV = un cuestionario ("Final ADS" 278 preguntas, "Bu
 ## Convenciones
 
 - **Cache busting**: al cambiar cualquier css/js, subir `?v=N` en index.html
-  (actualmente `v=32`). GitHub Pages cachea agresivo.
+  (actualmente `v=40`). GitHub Pages cachea agresivo.
 - Sin comentarios en el código salvo headers instructivos (como el de cloud.js).
 - Strings de UI siempre en español rioplatense (vos, tenés, hacé).
 - URLs externas: validar esquema http/https (ver `safeUrl`), nunca `javascript:`.
