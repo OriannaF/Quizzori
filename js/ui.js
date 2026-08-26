@@ -1057,6 +1057,7 @@
 
   function renderHome() {
     const qs = S().questionnaires;
+    const restricted = canViewRestricted();
 
     const activeCards = qs.map((qq, i) => {
       const st = Quiz.statsFor(qq.hash);
@@ -1068,7 +1069,7 @@
       <div class="home-wrap">
         <div class="home-grid">
           <div class="hg-main">
-            ${horarioHoyHTML()}
+            ${restricted ? horarioHoyHTML() : ""}
             <section class="panel-sec">
               <div class="sec-head-row">
                 <div class="sec-title"><span class="material-symbols-outlined">bolt</span><h2>Quizzes activos</h2></div>
@@ -1083,12 +1084,12 @@
             </section>
           </div>
           <aside class="hg-side">
-            ${nextEvalsHTML()}
-            <div id="home-tareas">${tareasHTML()}</div>
+            ${restricted ? nextEvalsHTML() : ""}
+            ${restricted ? `<div id="home-tareas">${tareasHTML()}</div>` : ""}
           </aside>
         </div>
         <div class="home-bottom">
-          <div id="home-dates">${agendaHTML()}</div>
+          ${restricted ? `<div id="home-dates">${agendaHTML()}</div>` : ""}
         </div>
       </div>
     `);
@@ -1155,6 +1156,12 @@
   function isOwner() {
     const C = window.Cloud;
     return !!(C && typeof C.isAdmin === "function" && C.isAdmin());
+  }
+
+  function canViewRestricted() {
+    const C = window.Cloud;
+    if (!C || !C.user()) return false;
+    return !!(C.isAdmin() && typeof C.isVerified === "function" && C.isVerified());
   }
 
   function safeUrl(u) {

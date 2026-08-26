@@ -145,7 +145,7 @@
     }
 
     function startSession(u) {
-      user = u ? { uid: u.uid, name: u.displayName || "", email: u.email || "" } : null;
+      user = u ? { uid: u.uid, name: u.displayName || "", email: u.email || "", verified: !!u.emailVerified } : null;
       if (!user) { emit(); return; }
       pullMergeAndPush().then(() => {
         if (user && !storeUnsub) storeUnsub = window.QuizStore.onChange(schedulePush);
@@ -197,12 +197,16 @@
           return doRedirect(provider);
         });
       }).then((cred) => {
-        if (cred && cred.user) startSession({ uid: cred.user.uid, name: cred.user.displayName || "", email: cred.user.email || "" });
+        if (cred && cred.user) startSession({ uid: cred.user.uid, displayName: cred.user.displayName || "", email: cred.user.email || "", emailVerified: cred.user.emailVerified });
       });
     }
 
     function isAdmin() {
       return !!user && ADMIN_EMAILS.indexOf(String(user.email || "").toLowerCase()) !== -1;
+    }
+
+    function isVerified() {
+      return !!user && user.verified === true;
     }
 
     function ensureDb() {
@@ -253,7 +257,7 @@
     return {
       isConfigured, init, signIn, signOut, warm: () => { ensureLoaded().catch(() => {}); },
       user: () => user,
-      isAdmin, ensureDb,
+      isAdmin, isVerified, ensureDb,
       fetchPublicCourses, publishCourses,
       onChange: (fn) => { if (typeof fn === "function") cbs.push(fn); }
     };
