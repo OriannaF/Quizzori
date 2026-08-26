@@ -314,7 +314,9 @@ const Crossword = (() => {
     }
 
     cells.forEach((el) => {
-      el.addEventListener("click", () => {
+      el.addEventListener("click", (e) => {
+        e.preventDefault();
+        const y = window.scrollY;
         const r = parseInt(el.dataset.r, 10);
         const c = parseInt(el.dataset.c, 10);
         const w = cw.words.find((w) => {
@@ -328,6 +330,7 @@ const Crossword = (() => {
           });
           if (alt) { highlightWord(alt); activeIdx = alt.dir === "across" ? c - alt.col : r - alt.row; }
           input.focus({ preventScroll: true });
+          window.scrollTo(0, y);
           return;
         }
         if (activeWord && activeWord.number === w.number) {
@@ -337,14 +340,16 @@ const Crossword = (() => {
         }
         highlightWord(w);
         input.focus({ preventScroll: true });
+        window.scrollTo(0, y);
       });
     });
 
     document.querySelectorAll(".cw-clue").forEach((el) => {
       el.addEventListener("click", () => {
+        const y = window.scrollY;
         const num = parseInt(el.dataset.wordNum, 10);
         const w = cw.words.find((ww) => ww.number === num);
-        if (w) { activeIdx = 0; highlightWord(w); input.focus({ preventScroll: true }); }
+        if (w) { activeIdx = 0; highlightWord(w); input.focus({ preventScroll: true }); window.scrollTo(0, y); }
       });
     });
 
