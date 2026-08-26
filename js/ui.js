@@ -331,11 +331,13 @@
 
     return Promise.all([
       loadOne("data/cuestionario.csv", "Final ADS"),
-      loadOne("data/cuestionario Burpleria.csv", "Burpleria")
-    ]).then(([r1, r2]) => {
+      loadOne("data/cuestionario Burpleria.csv", "Burpleria"),
+      loadOne("data/cuestionario%20Primer%20Parcial%202026.csv", "Primer Parcial 2026")
+    ]).then(([r1, r2, r3]) => {
       if (S().questionnaires.length > 0) return { ok: true, loaded: true };
       if (r1.errors) return { ok: false, errors: r1.errors };
       if (r2.errors) return { ok: false, errors: r2.errors };
+      if (r3.errors) return { ok: false, errors: r3.errors };
       return Quiz.tryLoadSaved()
         ? { ok: true, loaded: true }
         : { ok: true, loaded: false };
