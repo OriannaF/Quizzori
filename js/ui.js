@@ -332,7 +332,7 @@
     return Promise.all([
       loadOne("data/cuestionario.csv", "Final ADS"),
       loadOne("data/cuestionario Burpleria.csv", "Burpleria"),
-      loadOne("data/cuestionario%20Primer%20Parcial%202026.csv", "Primer Parcial 2026")
+      loadOne("data/cuestionario Primer Parcial 2026.csv", "Primer Parcial 2026")
     ]).then(([r1, r2, r3]) => {
       if (S().questionnaires.length > 0) return { ok: true, loaded: true };
       if (r1.errors) return { ok: false, errors: r1.errors };
