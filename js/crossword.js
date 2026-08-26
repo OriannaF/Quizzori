@@ -10,6 +10,25 @@ const Crossword = (() => {
 
   const ABCD = "ABCDEFGHIJKLMNOPQRSTUVWXYZÑ";
 
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function shuffle(arr, rnd) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+    }
+    return a;
+  }
+
   function extractTerms(questions) {
     const seen = new Set();
     const pairs = [];
@@ -46,11 +65,11 @@ const Crossword = (() => {
     return pairs;
   }
 
-  function buildGrid(pairs, maxWords, maxSide) {
-    const words = pairs
-      .slice()
+  function buildGrid(pairs, maxWords, maxSide, seed) {
+    const rnd = mulberry32(seed || Date.now());
+    const words = shuffle(pairs, rnd)
       .sort((a, b) => b.word.length - a.word.length)
-      .slice(0, maxWords || 18);
+      .slice(0, maxWords || 30);
 
     if (!words.length) return null;
 
@@ -208,6 +227,7 @@ const Crossword = (() => {
             <span class="cw-input-label">Seleccioná una celda y escribí</span>
             <input type="text" class="input cw-text-input" id="cw-input" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20" placeholder="…">
             <div class="cw-btns">
+              <button class="link-btn" id="cw-new" type="button"><span class="material-symbols-outlined">refresh</span> Nuevo</button>
               <button class="link-btn" id="cw-check" type="button"><span class="material-symbols-outlined">check_circle</span> Verificar</button>
               <button class="link-btn" id="cw-reveal" type="button"><span class="material-symbols-outlined">visibility</span> Revelar</button>
               <button class="link-btn" id="cw-clear" type="button"><span class="material-symbols-outlined">delete</span> Limpiar</button>
@@ -276,7 +296,7 @@ const Crossword = (() => {
       const ccc = w.dir === "across" ? w.col + activeIdx : w.col;
       moveCursor(ccr, ccc);
       const clueEl = document.querySelector(`.cw-clue[data-word-num="${w.number}"]`);
-      if (clueEl) { clueEl.classList.add("active"); clueEl.scrollIntoView({ behavior: "smooth", block: "nearest" }); }
+      if (clueEl) clueEl.classList.add("active");
     }
 
     function placeChar(ch, advance) {

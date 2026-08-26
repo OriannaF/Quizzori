@@ -1910,10 +1910,13 @@
         <div id="cx-board"></div>
         ${statsRow}`;
     } else {
-      const cwPairs = Crossword.extractTerms(allQ);
-      const cwPairsExtra = cwPairs.length < 10 ? Crossword.extractFromSelect(allQ, 20) : [];
-      const cwAll = cwPairs.concat(cwPairsExtra);
-      const cw = Crossword.buildGrid(cwAll, 30, 26);
+      if (!window._cwPairs) {
+        const cwPairs = Crossword.extractTerms(allQ);
+        const cwPairsExtra = cwPairs.length < 10 ? Crossword.extractFromSelect(allQ, 20) : [];
+        window._cwPairs = cwPairs.concat(cwPairsExtra);
+      }
+      if (!window._cwSeed) window._cwSeed = Date.now();
+      const cw = Crossword.buildGrid(window._cwPairs, 30, 26, window._cwSeed);
       gameContent = `
         <section class="cx-hero">
           <h2>Crucigrama</h2>
@@ -1950,6 +1953,11 @@
       if (hasGame) conexPersist(data);
     } else {
       Crossword.bind(window._cw);
+      const newBtn = document.getElementById("cw-new");
+      if (newBtn) newBtn.addEventListener("click", () => {
+        window._cwSeed = Date.now();
+        renderJuegos();
+      });
     }
   }
 
