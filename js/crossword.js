@@ -161,8 +161,8 @@ const Crossword = (() => {
   function renderHTML(cw) {
     if (!cw || !cw.words.length) return '<div class="empty-note">No hay suficientes preguntas para armar un crucigrama.</div>';
 
-    const cell = 34;
-    const pad = 12;
+    const cell = 40;
+    const pad = 14;
     const svgW = cw.cols * cell + pad * 2;
     const svgH = cw.rows * cell + pad * 2;
 
@@ -243,8 +243,8 @@ const Crossword = (() => {
 
     const cells = svg.querySelectorAll(".cw-cell");
     const cursor = document.getElementById("cw-cursor");
-    const cell = 34;
-    const pad = 12;
+    const cell = 40;
+    const pad = 14;
 
     function moveCursor(r, c) {
       if (!cursor) return;
