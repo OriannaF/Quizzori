@@ -1875,34 +1875,32 @@
     el.innerHTML = [0, 1, 2, 3].map((i) => `<span class="cx-life${i < conexData.state.lives ? "" : " off"}"></span>`).join("");
   }
 
+  let activeGame = "conexiones";
+
   function renderJuegos() {
     conexData = conexLoad();
     const data = conexData;
     const todayLabel = new Date().toLocaleDateString("es-AR", { day: "numeric", month: "long" });
     const hasGame = data.pool && data.pool.length >= 4;
     const st = data.state;
-    const statsRow = !hasGame ? "" : (() => {
-      const s = st.done ? conexStatsObj() : {};
-      return `
-      <section class="home-section cx-stats-row">
-        <div class="stat-card"><div class="stat-ic"><span class="material-symbols-outlined">local_fire_department</span></div><div><p class="lbl">Racha</p><p class="big">${s.streak || 0}</p></div></div>
-        <div class="stat-card"><div class="stat-ic green"><span class="material-symbols-outlined">emoji_events</span></div><div><p class="lbl">Ganados</p><p class="big">${s.wins || 0}</p></div></div>
-        <div class="stat-card"><div class="stat-ic amber"><span class="material-symbols-outlined">grid_view</span></div><div><p class="lbl">Jugadas</p><p class="big">${s.played || 0}</p></div></div>
-      </section>`;
-    })();
 
     const allQ = [];
     (S().questionnaires || []).forEach((qq) => {
       (qq.questions || []).forEach((q) => allQ.push(q));
     });
-    const cwPairs = Crossword.extractTerms(allQ);
-    const cwPairsExtra = cwPairs.length < 10 ? Crossword.extractFromSelect(allQ, 20) : [];
-    const cwAll = cwPairs.concat(cwPairsExtra);
-    const cw = Crossword.buildGrid(cwAll, 18, 22);
-    const cwHTML = Crossword.renderHTML(cw);
 
-    view(`
-      <div class="cx-wrap">
+    let gameContent = "";
+    if (activeGame === "conexiones") {
+      const statsRow = !hasGame ? "" : (() => {
+        const s = st.done ? conexStatsObj() : {};
+        return `
+        <section class="home-section cx-stats-row">
+          <div class="stat-card"><div class="stat-ic"><span class="material-symbols-outlined">local_fire_department</span></div><div><p class="lbl">Racha</p><p class="big">${s.streak || 0}</p></div></div>
+          <div class="stat-card"><div class="stat-ic green"><span class="material-symbols-outlined">emoji_events</span></div><div><p class="lbl">Ganados</p><p class="big">${s.wins || 0}</p></div></div>
+          <div class="stat-card"><div class="stat-ic amber"><span class="material-symbols-outlined">grid_view</span></div><div><p class="lbl">Jugadas</p><p class="big">${s.played || 0}</p></div></div>
+        </section>`;
+      })();
+      gameContent = `
         <section class="cx-hero">
           <div class="mono-label muted">Juego diario · ${esc(todayLabel)}</div>
           <h2>Conexiones</h2>
@@ -1910,20 +1908,49 @@
           ${hasGame && !st.done ? `<div class="cx-lives"></div>` : ""}
         </section>
         <div id="cx-board"></div>
-        ${statsRow}
-        <section class="cw-section">
-          <div class="cx-hero">
-            <h2>Crucigrama</h2>
-            <p class="muted small">Completá las palabras cruzando las pistas de tu material</p>
-          </div>
-          <div id="cw-board">${cwHTML}</div>
+        ${statsRow}`;
+    } else {
+      const cwPairs = Crossword.extractTerms(allQ);
+      const cwPairsExtra = cwPairs.length < 10 ? Crossword.extractFromSelect(allQ, 20) : [];
+      const cwAll = cwPairs.concat(cwPairsExtra);
+      const cw = Crossword.buildGrid(cwAll, 18, 22);
+      gameContent = `
+        <section class="cx-hero">
+          <h2>Crucigrama</h2>
+          <p class="muted small">Completá las palabras cruzando las pistas de tu material</p>
         </section>
+        <div id="cw-board">${Crossword.renderHTML(cw)}</div>`;
+      window._cw = cw;
+    }
+
+    view(`
+      <div class="cx-wrap">
+        <div class="game-tabs">
+          <button class="game-tab${activeGame === "conexiones" ? " active" : ""}" data-game="conexiones">
+            <span class="material-symbols-outlined">extension</span>Conexiones
+          </button>
+          <button class="game-tab${activeGame === "crucigrama" ? " active" : ""}" data-game="crucigrama">
+            <span class="material-symbols-outlined">grid_on</span>Crucigrama
+          </button>
+        </div>
+        ${gameContent}
       </div>
     `);
-    if (hasGame) updateConexLives();
-    paintConexBoard();
-    if (hasGame) conexPersist(data);
-    Crossword.bind(cw);
+
+    document.querySelectorAll(".game-tab").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        activeGame = btn.dataset.game;
+        renderJuegos();
+      });
+    });
+
+    if (activeGame === "conexiones") {
+      if (hasGame) updateConexLives();
+      paintConexBoard();
+      if (hasGame) conexPersist(data);
+    } else {
+      Crossword.bind(window._cw);
+    }
   }
 
   RENDERERS.inicio = renderHome;
