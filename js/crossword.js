@@ -327,7 +327,7 @@ const Crossword = (() => {
             return c === ww.col && r >= ww.row && r < ww.row + ww.word.length;
           });
           if (alt) { highlightWord(alt); activeIdx = alt.dir === "across" ? c - alt.col : r - alt.row; }
-          input.focus();
+          input.focus({ preventScroll: true });
           return;
         }
         if (activeWord && activeWord.number === w.number) {
@@ -336,7 +336,7 @@ const Crossword = (() => {
           activeIdx = 0;
         }
         highlightWord(w);
-        input.focus();
+        input.focus({ preventScroll: true });
       });
     });
 
@@ -344,7 +344,7 @@ const Crossword = (() => {
       el.addEventListener("click", () => {
         const num = parseInt(el.dataset.wordNum, 10);
         const w = cw.words.find((ww) => ww.number === num);
-        if (w) { activeIdx = 0; highlightWord(w); input.focus(); }
+        if (w) { activeIdx = 0; highlightWord(w); input.focus({ preventScroll: true }); }
       });
     });
 
@@ -427,7 +427,7 @@ const Crossword = (() => {
       letters.forEach((el) => { el.textContent = ""; el.classList.remove("correct", "wrong"); });
     });
 
-    if (cw.words.length) { activeIdx = 0; highlightWord(cw.words[0]); input.focus(); }
+    if (cw.words.length) { activeIdx = 0; highlightWord(cw.words[0]); input.focus({ preventScroll: true }); }
   }
 
   return { extractTerms, extractFromSelect, buildGrid, renderHTML, bind };
