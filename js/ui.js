@@ -1924,7 +1924,7 @@
     }
 
     view(`
-      <div class="cx-wrap">
+      <div class="cx-wrap${activeGame === "crucigrama" ? " cw-wide" : ""}">
         <div class="game-tabs">
           <button class="game-tab${activeGame === "conexiones" ? " active" : ""}" data-game="conexiones">
             <span class="material-symbols-outlined">extension</span>Conexiones
