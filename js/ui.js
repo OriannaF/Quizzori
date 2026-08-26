@@ -1890,6 +1890,17 @@
         <div class="stat-card"><div class="stat-ic amber"><span class="material-symbols-outlined">grid_view</span></div><div><p class="lbl">Jugadas</p><p class="big">${s.played || 0}</p></div></div>
       </section>`;
     })();
+
+    const allQ = [];
+    (S().questionnaires || []).forEach((qq) => {
+      (qq.questions || []).forEach((q) => allQ.push(q));
+    });
+    const cwPairs = Crossword.extractTerms(allQ);
+    const cwPairsExtra = cwPairs.length < 10 ? Crossword.extractFromSelect(allQ, 20) : [];
+    const cwAll = cwPairs.concat(cwPairsExtra);
+    const cw = Crossword.buildGrid(cwAll, 18, 22);
+    const cwHTML = Crossword.renderHTML(cw);
+
     view(`
       <div class="cx-wrap">
         <section class="cx-hero">
@@ -1900,11 +1911,19 @@
         </section>
         <div id="cx-board"></div>
         ${statsRow}
+        <section class="cw-section">
+          <div class="cx-hero">
+            <h2>Crucigrama</h2>
+            <p class="muted small">Completá las palabras cruzando las pistas de tu material</p>
+          </div>
+          <div id="cw-board">${cwHTML}</div>
+        </section>
       </div>
     `);
     if (hasGame) updateConexLives();
     paintConexBoard();
     if (hasGame) conexPersist(data);
+    Crossword.bind(cw);
   }
 
   RENDERERS.inicio = renderHome;

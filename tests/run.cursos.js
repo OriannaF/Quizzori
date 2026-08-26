@@ -7,7 +7,7 @@ let html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8")
   .replace(/<script src="([^"]+)"><\/script>/g, (m, src) => {
     const code = fs.readFileSync(path.join(ROOT, src.split("?")[0]), "utf8");
     if (src.indexOf("cloud.js") !== -1) {
-      return `<script>${code}\n</script><script>window.Cloud={isConfigured:()=>true,user:()=>({uid:"u1",name:"Orianna Fernandez",email:"oriannafernandezdelrosario@gmail.com"}),isAdmin:()=>true,onChange(){},init(){},signIn(){return Promise.resolve()},signOut(){return Promise.resolve()},fetchPublicCourses:()=>Promise.resolve(null),publishCourses:()=>Promise.resolve()};</script>`;
+      return `<script>${code}\n</script><script>window.Cloud={isConfigured:()=>true,user:()=>({uid:"u1",name:"Orianna Fernandez",email:"oriannafernandezdelrosario@gmail.com"}),isAdmin:()=>true,isVerified:()=>true,onChange(){},init(){},signIn(){return Promise.resolve()},signOut(){return Promise.resolve()},fetchPublicCourses:()=>Promise.resolve(null),publishCourses:()=>Promise.resolve()};</script>`;
     }
     return `<script>${code}\n</script>`;
   })

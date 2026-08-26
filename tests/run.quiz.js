@@ -4,7 +4,13 @@ const path = require("path");
 
 const ROOT = require("path").join(__dirname, "..");
 const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8")
-  .replace(/<script src="([^"]+)"><\/script>/g, (m, src) => `<script>${fs.readFileSync(path.join(ROOT, src.split("?")[0]), "utf8")}\n</script>`)
+  .replace(/<script src="([^"]+)"><\/script>/g, (m, src) => {
+    const code = fs.readFileSync(path.join(ROOT, src.split("?")[0]), "utf8");
+    if (src.indexOf("cloud.js") !== -1) {
+      return `<script>${code}\n</script><script>window.Cloud={isConfigured:()=>true,user:()=>({uid:"u1",name:"Test User",email:"test@test.com"}),isAdmin:()=>true,isVerified:()=>true,onChange(){},init(){},signIn(){return Promise.resolve()},signOut(){return Promise.resolve()},fetchPublicCourses:()=>Promise.resolve(null),publishCourses:()=>Promise.resolve()};</script>`;
+    }
+    return `<script>${code}\n</script>`;
+  })
   .replace(/<link[^>]*>/g, "");
 
 const errors = [];
