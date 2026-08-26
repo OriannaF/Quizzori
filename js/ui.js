@@ -1913,7 +1913,7 @@
       const cwPairs = Crossword.extractTerms(allQ);
       const cwPairsExtra = cwPairs.length < 10 ? Crossword.extractFromSelect(allQ, 20) : [];
       const cwAll = cwPairs.concat(cwPairsExtra);
-      const cw = Crossword.buildGrid(cwAll, 18, 22);
+      const cw = Crossword.buildGrid(cwAll, 30, 26);
       gameContent = `
         <section class="cx-hero">
           <h2>Crucigrama</h2>

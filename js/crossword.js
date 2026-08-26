@@ -184,6 +184,10 @@ const Crossword = (() => {
       }
     }
 
+    const cursorX = pad;
+    const cursorY = pad;
+    squares += `<rect class="cw-cursor" id="cw-cursor" x="${cursorX}" y="${cursorY}" width="${cell}" height="${cell}" rx="3"/>`;
+
     const across = cw.words.filter((w) => w.dir === "across").sort((a, b) => a.number - b.number);
     const down = cw.words.filter((w) => w.dir === "down").sort((a, b) => a.number - b.number);
 
@@ -195,21 +199,25 @@ const Crossword = (() => {
     };
 
     return `
-      <div class="cw-board">
-        <svg viewBox="0 0 ${svgW} ${svgH}" class="cw-svg">${squares}</svg>
-      </div>
-      <div class="cw-input-bar">
-        <span class="cw-input-label">Seleccioná una celda y escribí</span>
-        <input type="text" class="input cw-text-input" id="cw-input" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20" placeholder="…">
-        <div class="cw-btns">
-          <button class="link-btn" id="cw-check" type="button"><span class="material-symbols-outlined">check_circle</span> Verificar</button>
-          <button class="link-btn" id="cw-reveal" type="button"><span class="material-symbols-outlined">visibility</span> Revelar</button>
-          <button class="link-btn" id="cw-clear" type="button"><span class="material-symbols-outlined">delete</span> Limpiar</button>
+      <div class="cw-play">
+        <div class="cw-left">
+          <div class="cw-board">
+            <svg viewBox="0 0 ${svgW} ${svgH}" class="cw-svg">${squares}</svg>
+          </div>
+          <div class="cw-input-bar">
+            <span class="cw-input-label">Seleccioná una celda y escribí</span>
+            <input type="text" class="input cw-text-input" id="cw-input" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20" placeholder="…">
+            <div class="cw-btns">
+              <button class="link-btn" id="cw-check" type="button"><span class="material-symbols-outlined">check_circle</span> Verificar</button>
+              <button class="link-btn" id="cw-reveal" type="button"><span class="material-symbols-outlined">visibility</span> Revelar</button>
+              <button class="link-btn" id="cw-clear" type="button"><span class="material-symbols-outlined">delete</span> Limpiar</button>
+            </div>
+          </div>
         </div>
-      </div>
-      <div class="cw-clues">
-        ${clueList(across, "Horizontales →")}
-        ${clueList(down, "Verticales ↓")}
+        <div class="cw-right cw-clues">
+          ${clueList(across, "Horizontales →")}
+          ${clueList(down, "Verticales ↓")}
+        </div>
       </div>`;
   }
 
@@ -234,6 +242,16 @@ const Crossword = (() => {
     });
 
     const cells = svg.querySelectorAll(".cw-cell");
+    const cursor = document.getElementById("cw-cursor");
+    const cell = 34;
+    const pad = 12;
+
+    function moveCursor(r, c) {
+      if (!cursor) return;
+      cursor.setAttribute("x", pad + c * cell);
+      cursor.setAttribute("y", pad + r * cell);
+      cursor.classList.add("on");
+    }
 
     function clearHighlight() {
       cells.forEach((el) => el.classList.remove("active", "same-word"));
@@ -254,6 +272,9 @@ const Crossword = (() => {
           }
         });
       }
+      const ccr = w.dir === "across" ? w.row : w.row + activeIdx;
+      const ccc = w.dir === "across" ? w.col + activeIdx : w.col;
+      moveCursor(ccr, ccc);
       const clueEl = document.querySelector(`.cw-clue[data-word-num="${w.number}"]`);
       if (clueEl) { clueEl.classList.add("active"); clueEl.scrollIntoView({ behavior: "smooth", block: "nearest" }); }
     }
