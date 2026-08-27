@@ -53,7 +53,7 @@ const Quiz = (() => {
     S.settings.size = size === 0 ? 0 : (isNaN(size) ? 20 : Math.min(1000, Math.max(1, size)));
     const pts = parseFloat(saved.points);
     S.settings.points = isNaN(pts) ? 1 : Math.max(0.05, pts);
-    const modes = ["today", "random", "new", "failed", "all"];
+    const modes = ["today", "random", "new", "failed", "all", "timed"];
     S.settings.mode = modes.includes(saved.mode) ? saved.mode : "today";
     S.settings.cat = typeof saved.cat === "string" ? saved.cat : "";
   }
@@ -187,7 +187,7 @@ const Quiz = (() => {
   }
 
   function setMode(m) {
-    S.settings.mode = ["today", "random", "new", "failed", "all"].includes(m) ? m : "today";
+    S.settings.mode = ["today", "random", "new", "failed", "all", "timed"].includes(m) ? m : "today";
     persistSettings();
   }
 

@@ -682,7 +682,8 @@
       ["random", `Aleatorias (${st.total})`],
       ["new", `Solo nuevas (${st.newN})`],
       ["failed", `Solo falladas (${st.failedNow})`],
-      ["all", `Todas (${st.total})`]
+      ["all", `Todas (${st.total})`],
+      ["timed", `⏱️ Examen con tiempo (Simulacro)`]
     ].map(([v, lbl]) => `<option value="${v}" ${S().settings.mode === v ? "selected" : ""}>${lbl}</option>`).join("");
   }
 
@@ -707,18 +708,75 @@
       cats.map((c) => `<option value="${esc(c)}" ${valid && c === cur ? "selected" : ""}>${esc(c)}</option>`).join("");
   }
 
+  let timedExamState = null;
+
+  function formatTimer(sec) {
+    const m = Math.floor(Math.max(0, sec) / 60);
+    const s = Math.max(0, sec) % 60;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }
+
+  function updateTimerDisplay() {
+    const el = document.getElementById("timer-digits");
+    const bar = document.getElementById("exam-timer-bar");
+    if (!el || !timedExamState) return;
+    el.textContent = formatTimer(timedExamState.remainingSec);
+    if (bar) {
+      bar.classList.toggle("timer-warn", timedExamState.remainingSec <= 120 && timedExamState.remainingSec > 30);
+      bar.classList.toggle("timer-critical", timedExamState.remainingSec <= 30);
+    }
+  }
+
+  function startTimer(durationSeconds) {
+    stopTimer();
+    timedExamState = {
+      durationSec: durationSeconds,
+      remainingSec: durationSeconds,
+      startAt: Date.now(),
+      elapsedSec: 0,
+      timerId: setInterval(() => {
+        if (!timedExamState) return;
+        timedExamState.remainingSec--;
+        timedExamState.elapsedSec = Math.round((Date.now() - timedExamState.startAt) / 1000);
+        updateTimerDisplay();
+        if (timedExamState.remainingSec <= 0) {
+          stopTimer();
+          toast("⏰ ¡Tiempo terminado! Enviando examen…");
+          submitQuiz();
+        }
+      }, 1000)
+    };
+  }
+
+  function stopTimer() {
+    if (timedExamState && timedExamState.timerId) {
+      clearInterval(timedExamState.timerId);
+      timedExamState.timerId = null;
+    }
+  }
+
   function startQuiz(hash) {
     returnView = currentView;
     Quiz.selectQuestionnaire(hash);
     const modeSel = document.getElementById("sel-mode-" + hash);
     if (modeSel) Quiz.setMode(modeSel.value);
     Quiz.newSession();
+    if (Quiz.S.settings.mode === "timed") {
+      const qCount = Quiz.S.items.length;
+      const durationMin = qCount === 0 ? 30 : Math.max(5, Math.min(120, Math.round(qCount * 1.5)));
+      startTimer(durationMin * 60);
+    } else {
+      stopTimer();
+      timedExamState = null;
+    }
     renderQuiz();
   }
 
   function resumeQuiz(hash) {
     returnView = currentView;
     Quiz.selectQuestionnaire(hash);
+    stopTimer();
+    timedExamState = null;
     if (Quiz.tryResume()) renderQuiz();
     else { S().items = []; refreshView(); }
   }
@@ -726,6 +784,8 @@
   function bindExamCard(hash, qq) {
     const startBtn = document.getElementById("btn-start-" + hash);
     if (startBtn) startBtn.addEventListener("click", () => startQuiz(hash));
+    const flashBtn = document.getElementById("btn-flash-" + hash);
+    if (flashBtn) flashBtn.addEventListener("click", () => startFlashcards(hash));
     const modeSel = document.getElementById("sel-mode-" + hash);
     if (modeSel) modeSel.addEventListener("change", (e) => Quiz.setMode(e.target.value));
     const catSel = document.getElementById("sel-cat-" + hash);
@@ -776,6 +836,9 @@
           <select class="input sm" id="sel-mode-${st.hash}">${modeOptions(st)}</select>
           <button class="play-fab" id="btn-start-${st.hash}" title="Comenzar sesión">
             <span class="material-symbols-outlined">play_arrow</span>
+          </button>
+          <button class="btn sm secondary" id="btn-flash-${st.hash}" type="button" title="Repasar con Flashcards" style="display:inline-flex; align-items:center; gap:4px;">
+            <span class="material-symbols-outlined" style="font-size:18px;">style</span> Flashcards
           </button>
           ${(() => {
             const opts = catOptions(st.hash);
@@ -1453,6 +1516,9 @@
           <button class="mini-edit play-mini" data-play="${qq.hash}" title="Practicar este quiz">
             <span class="material-symbols-outlined">play_arrow</span>
           </button>
+          <button class="mini-edit play-mini" data-play-flash="${qq.hash}" title="Flashcards de este quiz">
+            <span class="material-symbols-outlined">style</span>
+          </button>
         </div>`;
       }).join("") || `<p class="muted small">Todavía no hay cuestionarios cargados.</p>`;
       if (!owner) body += `<p class="muted small lock-note"><span class="material-symbols-outlined">lock</span>Solo la cuenta de Orianna puede asignar quizzes.</p>`;
@@ -1509,6 +1575,9 @@
 
     ov.querySelectorAll("[data-play]").forEach((b) => {
       b.onclick = () => { closeCourseModal(); startQuiz(b.dataset.play); };
+    });
+    ov.querySelectorAll("[data-play-flash]").forEach((b) => {
+      b.onclick = () => { closeCourseModal(); startFlashcards(b.dataset.playFlash); };
     });
 
     ov.querySelectorAll("[data-assign]").forEach((cb) => {
@@ -2120,10 +2189,20 @@
       </div>`;
     }).join("");
 
+    const timerHTML = timedExamState ? `
+      <div class="exam-timer-bar" id="exam-timer-bar" title="Tiempo restante para completar el examen">
+        <span class="material-symbols-outlined">timer</span>
+        <span class="timer-digits" id="timer-digits">${formatTimer(timedExamState.remainingSec)}</span>
+      </div>` : "";
+
     view(`
       <div class="card quiz-meta">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:8px;">
+          <span class="mono-label muted">${esc(S().name)}</span>
+          ${timerHTML}
+        </div>
         <div class="progress"><span style="width:${Math.round((answered / n) * 100)}%" id="bar"></span></div>
-        <div class="muted small center-txt">Respondiste <b id="cnt-answered">${answered}</b> de ${n} · las respuestas correctas se muestran al terminar</div>
+        <div class="muted small center-txt" style="margin-top:8px;">Respondiste <b id="cnt-answered">${answered}</b> de ${n} · las respuestas correctas se muestran al terminar</div>
       </div>
       <div class="qlist">${cards}</div>
       <div class="sticky">
@@ -2185,6 +2264,8 @@
   function bindQuizEvents() {
     $("#btn-exit").addEventListener("click", () => {
       if (confirm("¿Salir de la sesión? Tus respuestas se guardan y podés continuar después.")) {
+        stopTimer();
+        timedExamState = null;
         document.body.classList.remove("quiz-open");
         navigate(returnView);
       }
@@ -2243,7 +2324,17 @@
   }
 
   function submitQuiz() {
+    let examStats = null;
+    if (timedExamState) {
+      examStats = {
+        elapsedSec: timedExamState.elapsedSec || Math.round((Date.now() - timedExamState.startAt) / 1000),
+        durationSec: timedExamState.durationSec
+      };
+      stopTimer();
+      timedExamState = null;
+    }
     const res = Quiz.submit();
+    if (examStats) res.examStats = examStats;
     document.body.classList.remove("quiz-open");
     renderResults(res);
     window.scrollTo(0, 0);
@@ -2325,6 +2416,14 @@
         <div class="mono-label muted">Resultado · ${esc(S().name)}</div>
         <div class="big">${fmt(r.total)} <span class="muted">/ ${fmt(r.max)} puntos</span></div>
         <div class="pct ${pct === 100 ? "ok-c" : pct >= 60 ? "" : "bad-c"}">${pct} %</div>
+        ${r.examStats ? `
+        <div style="display:flex; justify-content:center; gap:12px; margin:10px 0; align-items:center; flex-wrap:wrap;">
+          <span class="exam-badge ${pct >= 60 ? "passed" : "failed"}">
+            <span class="material-symbols-outlined" style="font-size:16px;">${pct >= 60 ? "check_circle" : "cancel"}</span>
+            ${pct >= 60 ? "Aprobado" : "No aprobado"}
+          </span>
+          <span class="mono-label muted">⏱️ Tiempo empleado: ${Math.floor(r.examStats.elapsedSec / 60)}m ${r.examStats.elapsedSec % 60}s</span>
+        </div>` : ""}
         <div class="msg">${msg}</div>
         <div class="btn-row justify-center">
           <button class="btn primary" id="btn-repeat">Repetir mismas preguntas</button>
@@ -2347,5 +2446,250 @@
     }));
   }
 
-  window.UI = { init };
+  /* ---- Flashcards System ---- */
+  let flashState = null;
+
+  function startFlashcards(hash) {
+    returnView = currentView;
+    const qz = Quiz.S.questionnaires.find((x) => x.hash === hash);
+    if (!qz || !qz.questions || !qz.questions.length) {
+      toast("No hay preguntas en este cuestionario.");
+      return;
+    }
+    let questions = qz.questions.slice();
+    const cat = String(Quiz.S.settings.cat || "").trim();
+    if (cat) {
+      const filtered = questions.filter((q) => (q.category || "").trim() === cat);
+      if (filtered.length) questions = filtered;
+    }
+    questions = window.Scheduler ? window.Scheduler.shuffle(questions.map((q) => q.id)).map((id) => qz.questions[id]) : questions;
+
+    flashState = {
+      hash,
+      name: qz.name,
+      category: cat,
+      deck: questions,
+      idx: 0,
+      flipped: false,
+      easyCount: 0,
+      hardDeck: []
+    };
+    renderFlashcards();
+  }
+
+  function formatFlashAnswer(q) {
+    if (q.type === "dropdown") {
+      return q.slots.map((s, i) => `<b>${esc(s)}:</b> ${esc(q.dropdown[q.correctSlot[i]])}`).join("<br>");
+    }
+    if (q.type === "fill") {
+      return q.correct.map(esc).join(" <i>ó</i> ");
+    }
+    return q.correct.map((idx) => `• ${esc(q.options[idx])}`).join("<br>");
+  }
+
+  function renderFlashcards() {
+    if (!flashState) { refreshView(); return; }
+    const st = flashState;
+    if (st.idx >= st.deck.length) {
+      renderFlashSummary();
+      return;
+    }
+    const q = st.deck[st.idx];
+    const total = st.deck.length;
+    const currentNum = st.idx + 1;
+    const pct = Math.round((currentNum / total) * 100);
+
+    const typeLabel = q.type === "dropdown" ? "Relacionar" : q.type === "fill" ? "Completar" : "Opción múltiple";
+    const answerHTML = formatFlashAnswer(q);
+    const explainHTML = q.explanation ? `<div class="explain" style="margin-top:12px;"><b>Explicación:</b> ${rich(q.explanation)}</div>` : "";
+
+    view(`
+      <div class="fc-wrap">
+        <div class="fc-topbar">
+          <button class="btn sm" id="btn-fc-exit"><span class="material-symbols-outlined">arrow_back</span> Salir</button>
+          <span class="mono-label muted">${esc(st.name)}${st.category ? ` · ${esc(st.category)}` : ""}</span>
+          <span class="mono-label">Tarjeta ${currentNum} de ${total}</span>
+        </div>
+        <div class="progress"><span style="width:${pct}%"></span></div>
+
+        <div class="fc-scene" id="fc-scene" tabindex="0" role="button" aria-label="Girar tarjeta">
+          <div class="fc-card${st.flipped ? " flipped" : ""}" id="fc-card">
+            <div class="fc-face fc-front">
+              <div class="fc-head">
+                <span class="chip">${typeLabel}</span>
+                ${q.category ? `<span class="chip warn">${esc(q.category)}</span>` : ""}
+              </div>
+              <div class="fc-body">
+                <div class="qtext">${rich(q.text)}</div>
+                ${q.type === "dropdown" ? `<div class="muted small">${q.slots.length} conceptos a relacionar</div>` : ""}
+                ${q.type === "select" ? `<div class="muted small">${q.options.length} opciones disponibles</div>` : ""}
+              </div>
+              <div class="fc-hint">
+                <span class="material-symbols-outlined">touch_app</span> Hacé clic o presioná <kbd>Espacio</kbd> para voltear
+              </div>
+            </div>
+
+            <div class="fc-face fc-back">
+              <div class="fc-head">
+                <span class="chip" style="color:var(--green-solid); border-color:var(--green-solid);">Respuesta Correcta</span>
+                <span class="material-symbols-outlined" style="color:var(--green-solid)">check_circle</span>
+              </div>
+              <div class="fc-body">
+                <div class="fc-answer-box">${answerHTML}</div>
+                ${explainHTML}
+              </div>
+              <div class="fc-hint">
+                Calificá cómo la sentiste para continuar
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="fc-controls" id="fc-controls" style="${st.flipped ? "" : "opacity:0.5; pointer-events:none;"}">
+          <button class="fc-btn hard" id="fc-hard" type="button">
+            <span>🔴 Difícil</span>
+            <kbd>1 · Flecha Izq</kbd>
+          </button>
+          <button class="fc-btn med" id="fc-med" type="button">
+            <span>🟡 Dudoso</span>
+            <kbd>2 · Flecha Abajo</kbd>
+          </button>
+          <button class="fc-btn easy" id="fc-easy" type="button">
+            <span>🟢 Fácil</span>
+            <kbd>3 · Flecha Der</kbd>
+          </button>
+        </div>
+      </div>
+    `);
+
+    bindFlashEvents();
+  }
+
+  function handleFlashRating(rating) {
+    if (!flashState) return;
+    const st = flashState;
+    const currentQ = st.deck[st.idx];
+    if (rating === "hard") {
+      st.hardDeck.push(currentQ);
+    } else if (rating === "easy") {
+      st.easyCount++;
+    }
+    st.idx++;
+    st.flipped = false;
+    renderFlashcards();
+  }
+
+  function flipFlashcard() {
+    if (!flashState) return;
+    flashState.flipped = !flashState.flipped;
+    const card = document.getElementById("fc-card");
+    if (card) card.classList.toggle("flipped", flashState.flipped);
+    const controls = document.getElementById("fc-controls");
+    if (controls) {
+      controls.style.opacity = flashState.flipped ? "1" : "0.5";
+      controls.style.pointerEvents = flashState.flipped ? "auto" : "none";
+    }
+  }
+
+  function bindFlashEvents() {
+    const scene = document.getElementById("fc-scene");
+    if (scene) scene.addEventListener("click", flipFlashcard);
+
+    const exitBtn = document.getElementById("btn-fc-exit");
+    if (exitBtn) {
+      exitBtn.addEventListener("click", () => {
+        flashState = null;
+        navigate(returnView || "inicio");
+      });
+    }
+
+    const hardBtn = document.getElementById("fc-hard");
+    if (hardBtn) hardBtn.addEventListener("click", () => handleFlashRating("hard"));
+    const medBtn = document.getElementById("fc-med");
+    if (medBtn) medBtn.addEventListener("click", () => handleFlashRating("med"));
+    const easyBtn = document.getElementById("fc-easy");
+    if (easyBtn) easyBtn.addEventListener("click", () => handleFlashRating("easy"));
+  }
+
+  function renderFlashSummary() {
+    const st = flashState;
+    const total = st.deck.length;
+    const hardN = st.hardDeck.length;
+    const easyN = st.easyCount;
+
+    view(`
+      <div class="fc-wrap">
+        <div class="card fc-summary-card">
+          <span class="material-symbols-outlined" style="font-size:48px; color:var(--accent);">emoji_events</span>
+          <h2>¡Repaso de Flashcards completado!</h2>
+          <p class="muted">Repasaste <b>${total}</b> tarjetas de <b>${esc(st.name)}</b>.</p>
+
+          <div class="fc-stats-grid">
+            <div class="stat-card">
+              <div class="stat-ic green"><span class="material-symbols-outlined">task_alt</span></div>
+              <div><p class="lbl">Fáciles / Dominadas</p><p class="big">${easyN}</p></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-ic red"><span class="material-symbols-outlined">replay</span></div>
+              <div><p class="lbl">Para repasar</p><p class="big">${hardN}</p></div>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:20px;">
+            ${hardN > 0 ? `
+            <button class="btn primary" id="btn-fc-retry-hard">
+              <span class="material-symbols-outlined">restart_alt</span> Repasar las difíciles (${hardN})
+            </button>` : ""}
+            <button class="btn" id="btn-fc-restart">Reiniciar todo el mazo</button>
+            <button class="btn" id="btn-fc-home">Volver al inicio</button>
+          </div>
+        </div>
+      </div>
+    `);
+
+    const retryBtn = document.getElementById("btn-fc-retry-hard");
+    if (retryBtn) {
+      retryBtn.addEventListener("click", () => {
+        st.deck = st.hardDeck.slice();
+        st.hardDeck = [];
+        st.idx = 0;
+        st.flipped = false;
+        st.easyCount = 0;
+        renderFlashcards();
+      });
+    }
+    const restartBtn = document.getElementById("btn-fc-restart");
+    if (restartBtn) {
+      restartBtn.addEventListener("click", () => startFlashcards(st.hash));
+    }
+    const homeBtn = document.getElementById("btn-fc-home");
+    if (homeBtn) {
+      homeBtn.addEventListener("click", () => {
+        flashState = null;
+        navigate(returnView || "inicio");
+      });
+    }
+  }
+
+  window.addEventListener("keydown", (e) => {
+    if (!flashState) return;
+    if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
+    if (e.code === "Space" || e.key === " " || e.key === "Enter") {
+      e.preventDefault();
+      flipFlashcard();
+    } else if (flashState.flipped) {
+      if (e.key === "1" || e.key === "ArrowLeft") {
+        e.preventDefault();
+        handleFlashRating("hard");
+      } else if (e.key === "2" || e.key === "ArrowDown") {
+        e.preventDefault();
+        handleFlashRating("med");
+      } else if (e.key === "3" || e.key === "ArrowRight") {
+        e.preventDefault();
+        handleFlashRating("easy");
+      }
+    }
+  });
+
+  window.UI = { init, startFlashcards };
 })();

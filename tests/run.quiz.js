@@ -140,6 +140,31 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     log("calendar renders", $(".cal-grid .cal-day") ? "OK" : "FAIL");
   }
 
+  // Flashcards test
+  click2('#main-nav [data-view="inicio"]');
+  await sleep(50);
+  const flashBtn = $('[id^="btn-flash-"]');
+  if (flashBtn) {
+    flashBtn.click();
+    await sleep(50);
+    log("flashcards view", $(".fc-card") && $(".fc-front") ? "OK" : "FAIL");
+    const scene = $("#fc-scene");
+    if (scene) {
+      scene.click();
+      await sleep(50);
+      log("flashcard flip", $(".fc-card.flipped") ? "OK" : "FAIL");
+      const easyBtn = $("#fc-easy");
+      if (easyBtn) {
+        easyBtn.click();
+        await sleep(50);
+        log("flashcard advance", $("#fc-scene") ? "OK" : "FAIL");
+      }
+    }
+    const exitFc = $("#btn-fc-exit");
+    if (exitFc) exitFc.click();
+    await sleep(50);
+  }
+
   const errs = errors.filter(e => !/not implemented|Could not load|css/i.test(e));
   log("runtime errors", errs.length ? "\n  " + errs.join("\n  ") : "none");
   process.exit(errs.length ? 1 : 0);

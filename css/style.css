@@ -2140,3 +2140,167 @@ html.light .fc-center { box-shadow: inset 0 2px 10px rgba(35, 44, 73, 0.08); }
   .glow-c { width: 240px; height: 240px; }
   .qcard { content-visibility: auto; contain-intrinsic-size: 160px; }
 }
+
+/* Timed Exam Mode */
+.exam-timer-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid var(--border-strong);
+  font-weight: 700;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 13px;
+  color: var(--text);
+}
+.exam-timer-bar .material-symbols-outlined { font-size: 18px; color: var(--accent); }
+.exam-timer-bar.timer-warn { border-color: #ffb300; color: #ffb300; }
+.exam-timer-bar.timer-warn .material-symbols-outlined { color: #ffb300; }
+.exam-timer-bar.timer-critical { border-color: var(--red); color: var(--red); animation: timer-pulse 0.8s infinite; }
+.exam-timer-bar.timer-critical .material-symbols-outlined { color: var(--red); }
+@keyframes timer-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+.exam-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.exam-badge.passed { background: var(--green-bg); color: var(--green-solid); }
+.exam-badge.failed { background: var(--red-bg); color: var(--red); }
+
+/* Flashcards */
+.fc-wrap {
+  max-width: 680px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.fc-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.fc-scene {
+  perspective: 1200px;
+  width: 100%;
+  min-height: 360px;
+  cursor: pointer;
+}
+.fc-card {
+  width: 100%;
+  min-height: 360px;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: var(--radius);
+}
+.fc-card.flipped {
+  transform: rotateY(180deg);
+}
+.fc-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: var(--radius);
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  user-select: none;
+}
+.fc-back {
+  transform: rotateY(180deg);
+  background: var(--panel-2);
+  border-color: rgba(5, 231, 119, 0.4);
+}
+.fc-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.fc-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+  margin: 14px 0;
+}
+.fc-body .qtext {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+.fc-answer-box {
+  background: rgba(5, 231, 119, 0.12);
+  border-left: 4px solid var(--green-solid);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--green);
+}
+.fc-hint {
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.fc-controls {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.fc-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 12px 6px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  border: 1px solid var(--border-strong);
+  background: var(--panel);
+  color: var(--text);
+  transition: all var(--tr);
+}
+.fc-btn kbd {
+  font-size: 10px;
+  font-family: "JetBrains Mono", monospace;
+  opacity: 0.7;
+}
+.fc-btn.hard { border-color: var(--red); color: var(--red); }
+.fc-btn.hard:hover { background: var(--red-bg); }
+.fc-btn.med { border-color: #ffb300; color: #ffb300; }
+.fc-btn.med:hover { background: rgba(255, 179, 0, 0.12); }
+.fc-btn.easy { border-color: var(--green-solid); color: var(--green); }
+.fc-btn.easy:hover { background: var(--green-bg); }
+.fc-summary-card {
+  text-align: center;
+  padding: 36px 20px;
+}
+.fc-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin: 20px 0;
+}
