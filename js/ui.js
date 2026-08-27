@@ -319,7 +319,7 @@
 
   function loadSource() {
     const loadOne = (url, name) =>
-      fetch(`${url}?v=53`)
+      fetch(`${url}?v=54`)
         .then((r) => (r.ok ? r.text() : Promise.reject(new Error("no file"))))
         .then((txt) => {
           if (!txt.trim()) return { ok: false, skipped: true };
@@ -486,8 +486,6 @@
     paintTopDate();
     bindNav();
     initPomodoro();
-    initCloudUI();
-    refreshCoursesFromCloud();
     loadSource().then((r) => {
       if (r.loaded) {
         warningsDismissed = false;
@@ -496,6 +494,15 @@
         renderLoadError(r.errors);
       } else {
         renderUpload();
+      }
+      const bgInit = () => {
+        initCloudUI();
+        refreshCoursesFromCloud();
+      };
+      if (typeof window !== "undefined" && typeof window.requestIdleCallback === "function") {
+        window.requestIdleCallback(bgInit);
+      } else {
+        setTimeout(bgInit, 100);
       }
     });
   }

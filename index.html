@@ -1,10 +1,15 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es" class="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Studori</title>
-  <meta name="description" content="Plataforma de pr�ctica de ex�menes con repetici�n espaciada, puntaje parcial y un cuestionario por cada CSV.">
+  <meta name="description" content="Plataforma de práctica de exámenes con repetición espaciada, puntaje parcial y un cuestionario por cada CSV.">
+  <meta name="theme-color" content="#0b1326">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.json">
   <script>
     (function () {
       var t = "dark";
@@ -14,11 +19,16 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@700;800&family=Manrope:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,500,1,0&display=swap" rel="stylesheet">
-  <link rel="preload" as="fetch" href="data/cuestionario.csv">
-  <link rel="preload" as="fetch" href="data/cuestionario%20Burpleria.csv">
-  <link rel="stylesheet" href="css/style.css?v=53">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@700;800&family=Manrope:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,500,1,0&display=swap" media="print" onload="this.media='all'">
+  <noscript>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@700;800&family=Manrope:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,500,1,0&display=swap">
+  </noscript>
+  <link rel="preload" as="fetch" href="data/cuestionario.csv?v=54" crossorigin>
+  <link rel="preload" as="fetch" href="data/cuestionario%20Burpleria.csv?v=54" crossorigin>
+  <link rel="preload" as="fetch" href="data/cuestionario%20Primer%20Parcial%202026.csv?v=54" crossorigin>
+  <link rel="stylesheet" href="css/style.css?v=54">
 </head>
 <body>
   <div class="bg-glow" aria-hidden="true">
@@ -76,7 +86,7 @@
           <span class="switch-track"><span class="switch-knob"></span></span>
           <span class="material-symbols-outlined ic-moon">dark_mode</span>
         </button>
-        <button id="acct-btn" class="acct-chip" type="button" title="Iniciar sesi�n con Google">
+        <button id="acct-btn" class="acct-chip" type="button" title="Iniciar sesión con Google">
           <span class="material-symbols-outlined" id="acct-ic">person</span>
           <span class="acct-name" id="acct-name">Entrar</span>
         </button>
@@ -87,7 +97,7 @@
   <main id="app" class="app-main">
     <div class="view">
       <div class="card center">
-        <h2>Cargando�</h2>
+        <h2>Cargando…</h2>
         <p class="muted">Trayendo tus cuestionarios.</p>
       </div>
     </div>
@@ -108,17 +118,20 @@
     </a>
   </nav>
 
-  <script src="js/storage.js?v=53"></script>
-  <script src="js/csv.js?v=53"></script>
-  <script src="js/scheduler.js?v=53"></script>
-  <script src="js/quiz.js?v=53"></script>
-  <script src="js/game.js?v=53"></script>
-  <script src="js/crossword.js?v=53"></script>
-  <script src="js/cloud.js?v=53"></script>
-  <script src="js/ui.js?v=53"></script>
+  <script src="js/storage.js?v=54"></script>
+  <script src="js/csv.js?v=54"></script>
+  <script src="js/scheduler.js?v=54"></script>
+  <script src="js/quiz.js?v=54"></script>
+  <script src="js/game.js?v=54"></script>
+  <script src="js/crossword.js?v=54"></script>
+  <script src="js/cloud.js?v=54"></script>
+  <script src="js/ui.js?v=54"></script>
   <script>
     document.addEventListener("DOMContentLoaded", function () {
       window.UI.init();
+      if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+        navigator.serviceWorker.register("sw.js").catch(function () {});
+      }
     });
   </script>
 </body>
