@@ -2166,6 +2166,8 @@ html.light .fc-center { box-shadow: inset 0 2px 10px rgba(35, 44, 73, 0.08); }
 .exam-timer-bar.timer-critical { border-color: var(--red); color: var(--red); animation: timer-pulse 0.8s infinite; }
 .exam-timer-bar.timer-critical .material-symbols-outlined { color: var(--red); }
 @keyframes timer-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.rotating { animation: spin 1s linear infinite; display: inline-block; }
 
 .exam-badge {
   display: inline-flex;

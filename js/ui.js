@@ -1313,6 +1313,7 @@
   function tareasHTML() {
     const list = tasksList().slice().sort((a, b) => (a.done - b.done) || ((b.ts || 0) - (a.ts || 0)));
     const mats = loadCourses();
+    const isGoogleConnected = window.Cloud && window.Cloud.hasGTasksPermission && window.Cloud.hasGTasksPermission();
     const rows = list.map((t) => {
       const mc = t.mat ? getMateriaColor(t.mat) : null;
       return `
@@ -1327,7 +1328,12 @@
     <section class="panel-sec">
       <div class="sec-head-row">
         <div class="sec-title"><span class="material-symbols-outlined">checklist</span><h2>Lista de Tareas</h2></div>
-        <button class="link-btn" id="btn-task-new"><span class="material-symbols-outlined">add</span>Nueva</button>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <button class="link-btn" id="btn-task-sync" type="button" title="Sincronizar con Google Tasks">
+            <span class="material-symbols-outlined" style="font-size:15px;">sync</span> Tasks
+          </button>
+          <button class="link-btn" id="btn-task-new"><span class="material-symbols-outlined">add</span>Nueva</button>
+        </div>
       </div>
       <div class="tasks-list">${rows || `<div class="empty-note">Sin tareas. Sumá una con «Nueva».</div>`}</div>
       <div class="task-add" id="task-add" hidden>
@@ -1349,24 +1355,57 @@
   function bindTareas() {
     const btnNew = document.getElementById("btn-task-new");
     const addRow = document.getElementById("task-add");
-    if (!btnNew || !addRow) return;
-    btnNew.addEventListener("click", () => {
-      addRow.hidden = !addRow.hidden;
-      if (!addRow.hidden) {
-        const txt = document.getElementById("task-new-txt");
-        if (txt) txt.focus();
-      }
-    });
+    if (btnNew && addRow) {
+      btnNew.addEventListener("click", () => {
+        addRow.hidden = !addRow.hidden;
+        if (!addRow.hidden) {
+          const txt = document.getElementById("task-new-txt");
+          if (txt) txt.focus();
+        }
+      });
+    }
 
-    const doSave = () => {
+    const syncBtn = document.getElementById("btn-task-sync");
+    if (syncBtn) {
+      syncBtn.addEventListener("click", async () => {
+        if (!window.Cloud) { toast("Servicio no disponible"); return; }
+        syncBtn.disabled = true;
+        syncBtn.innerHTML = `<span class="material-symbols-outlined rotating" style="font-size:15px;">sync</span> Sincronizando...`;
+        try {
+          await window.Cloud.syncGoogleTasks();
+          toast("✅ Tareas sincronizadas con Google Tasks");
+          renderTareas();
+        } catch (err) {
+          toast(`⚠️ ${err.message || "Error al sincronizar con Google Tasks"}`);
+        } finally {
+          syncBtn.disabled = false;
+          syncBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:15px;">sync</span> Tasks`;
+        }
+      });
+    }
+
+    const doSave = async () => {
       const txtEl = document.getElementById("task-new-txt");
       const matEl = document.getElementById("task-new-mat");
       const txt = txtEl ? txtEl.value.trim() : "";
       if (!txt) { toast("Escribí la tarea primero."); return; }
       const list = tasksList();
-      list.push({ id: Date.now().toString(36), txt, mat: matEl ? matEl.value : "", done: false, ts: Date.now() });
+      const newTask = { id: Date.now().toString(36), txt, mat: matEl ? matEl.value : "", done: false, ts: Date.now() };
+      list.push(newTask);
       saveTasksList(list);
       renderTareas();
+
+      if (window.Cloud && window.Cloud.hasGTasksPermission && window.Cloud.hasGTasksPermission()) {
+        try {
+          const res = await window.Cloud.createGTask(newTask);
+          if (res && res.id) {
+            newTask.gId = res.id;
+            saveTasksList(tasksList().map((x) => x.id === newTask.id ? newTask : x));
+          }
+        } catch (e) {
+          console.warn("Error creando en Google Tasks:", e);
+        }
+      }
     };
 
     const btnSave = document.getElementById("task-new-save");
@@ -1386,15 +1425,28 @@
       c.addEventListener("change", () => {
         const list = tasksList();
         const t = list.find((x) => x.id === c.dataset.taskCheck);
-        if (t) { t.done = c.checked; saveTasksList(list); renderTareas(); }
+        if (t) {
+          t.done = c.checked;
+          saveTasksList(list);
+          renderTareas();
+          if (t.gId && window.Cloud && window.Cloud.hasGTasksPermission && window.Cloud.hasGTasksPermission()) {
+            window.Cloud.updateGTask(t.gId, { done: t.done }).catch((e) => console.warn(e));
+          }
+        }
       });
     });
+
     document.querySelectorAll("[data-task-del]").forEach((b) => {
       b.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        saveTasksList(tasksList().filter((x) => x.id !== b.dataset.taskDel));
+        const delId = b.dataset.taskDel;
+        const t = tasksList().find((x) => x.id === delId);
+        saveTasksList(tasksList().filter((x) => x.id !== delId));
         renderTareas();
+        if (t && t.gId && window.Cloud && window.Cloud.hasGTasksPermission && window.Cloud.hasGTasksPermission()) {
+          window.Cloud.deleteGTask(t.gId).catch((e) => console.warn(e));
+        }
       });
     });
   }
