@@ -14,7 +14,7 @@ const dom = new JSDOM(html, {
   pretendToBeVisual: true,
   beforeParse(window) {
     window.fetch = (url) => {
-      const p = path.join(ROOT, decodeURIComponent(String(url).replace("http://localhost/", "")));
+      const p = path.join(ROOT, decodeURIComponent(String(url).split("?")[0].replace("http://localhost/", "")));
       const txt = fs.existsSync(p) ? fs.readFileSync(p, "utf8") : "";
       return Promise.resolve({ ok: true, text: () => Promise.resolve(txt) });
     };

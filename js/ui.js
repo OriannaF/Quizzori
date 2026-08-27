@@ -319,7 +319,7 @@
 
   function loadSource() {
     const loadOne = (url, name) =>
-      fetch(url)
+      fetch(`${url}?v=52`)
         .then((r) => (r.ok ? r.text() : Promise.reject(new Error("no file"))))
         .then((txt) => {
           if (!txt.trim()) return { ok: false, skipped: true };
