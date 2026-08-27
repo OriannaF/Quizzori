@@ -1695,6 +1695,22 @@
           <input type="file" id="file2" accept=".csv,text/csv,text/plain" hidden>
         </div>
       </section>
+      <section class="home-section">
+        <div class="card">
+          <h2>Copia de seguridad y datos</h2>
+          <p class="muted small">Podés exportar todo tu progreso y configuración en un archivo JSON para tener un respaldo o transferirlo a otro dispositivo.</p>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+            <button class="btn sm" id="btn-export-backup" type="button"><span class="material-symbols-outlined">download</span> Exportar copia (JSON)</button>
+            <label class="btn sm" style="cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+              <span class="material-symbols-outlined">upload</span> Restaurar copia
+              <input type="file" id="input-import-backup" accept=".json" style="display:none;">
+            </label>
+            ${Cloud && Cloud.isConfigured() && Cloud.user() ? `
+            <button class="btn danger sm" id="btn-reset-all" type="button">Reiniciar progreso</button>
+            ` : ""}
+          </div>
+        </div>
+      </section>
     `);
 
     const nb = document.getElementById("btn-new-course");
@@ -1714,6 +1730,62 @@
       fc.innerHTML = fechasBoxHTML("cur");
       bindFechasBox("cur");
     }
+    bindBackupControls();
+  }
+
+  function bindBackupControls() {
+    const expBtn = document.getElementById("btn-export-backup");
+    if (expBtn) {
+      expBtn.addEventListener("click", () => {
+        if (!window.QuizStore || !window.QuizStore.exportData) return;
+        const data = window.QuizStore.exportData();
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        const dateStr = new Date().toISOString().slice(0, 10);
+        a.href = url;
+        a.download = `studori-backup-${dateStr}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast("Copia de seguridad descargada.");
+      });
+    }
+    const impInput = document.getElementById("input-import-backup");
+    if (impInput) {
+      impInput.addEventListener("change", (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const res = window.QuizStore.importData(reader.result);
+            if (res.ok) {
+              if (window.Quiz && window.Quiz.reloadProgress) window.Quiz.reloadProgress();
+              if (window.Cloud && window.Cloud.flush) window.Cloud.flush();
+              toast(`Restaurados ${res.count} registros.`);
+              refreshView();
+            } else {
+              toast("Error al importar: " + (res.error || "formato inválido"));
+            }
+          } catch (err) {
+            toast("No se pudo leer el archivo.");
+          }
+        };
+        reader.readAsText(file);
+      });
+    }
+    const resetAll = document.getElementById("btn-reset-all");
+    if (resetAll) resetAll.addEventListener("click", () => {
+      if (!confirm("¿Seguro que querés borrar TODO el progreso (de todos los cuestionarios, en este dispositivo y en la nube)? Esta acción no se puede deshacer.")) return;
+      if (window.Cloud && typeof window.Cloud.resetProgress === "function") {
+        window.Cloud.resetProgress().then(refreshView);
+      } else {
+        window.QuizStore.clearAll();
+        refreshView();
+      }
+    });
   }
 
   function weekPlanData() {
@@ -2132,7 +2204,6 @@
 
   RENDERERS.inicio = renderHome;
   RENDERERS.cursos = renderCursos;
-  RENDERERS.progreso = renderProgreso;
   RENDERERS.juegos = renderJuegos;
 
   const isoOf = (y, m, d) => new Date(y, m, d, 12).toISOString().slice(0, 10);

@@ -49,7 +49,7 @@ const click = (sel) => {
   log("questionnaires loaded", w.Quiz.S.questionnaires.map(q => q.name + ":" + q.questions.length).join(", ") || "NONE");
   log("initial view", $("#app").textContent.includes("Horario de Hoy") && $("#app").textContent.includes("Quizzes activos") ? "inicio OK" : "NOT inicio");
 
-  for (const v of ["cursos", "progreso", "inicio"]) {
+  for (const v of ["cursos", "juegos", "inicio"]) {
     click(`#main-nav [data-view="${v}"]`);
     await sleep(50);
   }
@@ -57,9 +57,9 @@ const click = (sel) => {
   log("nav active state", $('#main-nav [data-view="inicio"]').classList.contains("active") ? "OK" : "FAIL");
   log("topbar stable", $("#pomo-time").textContent === "25:00" && $("#top-date") ? "OK" : "FAIL");
 
-  click('#main-nav [data-view="progreso"]');
+  click('#main-nav [data-view="cursos"]');
   await sleep(50);
-  log("progreso stats", w.document.querySelectorAll(".stat-card").length + " stat-cards, week-chart: " + !!$(".week-chart"));
+  log("cursos view", $("#app").textContent.toLowerCase().includes("materias") ? "OK" : "FAIL");
 
   click('#main-nav [data-view="inicio"]');
   await sleep(50);
