@@ -1313,13 +1313,16 @@
   function tareasHTML() {
     const list = tasksList().slice().sort((a, b) => (a.done - b.done) || ((b.ts || 0) - (a.ts || 0)));
     const mats = loadCourses();
-    const rows = list.map((t) => `
+    const rows = list.map((t) => {
+      const mc = t.mat ? getMateriaColor(t.mat) : null;
+      return `
       <label class="task-row${t.done ? " done" : ""}">
         <input type="checkbox" data-task-check="${t.id}"${t.done ? " checked" : ""}>
         <span class="task-txt">${esc(t.txt)}</span>
-        ${t.mat ? `<span class="task-tag mono-label">${esc(t.mat)}</span>` : ""}
+        ${t.mat ? `<span class="mat-chip" style="font-size:10.5px; padding:2px 8px; background:${mc ? mc.bg : 'var(--panel)'}; color:${mc ? mc.color : 'inherit'}; border-color:${mc ? mc.color : 'currentColor'}50;"><span class="mat-dot" style="width:6px; height:6px; background:${mc ? mc.color : 'currentColor'};"></span>${esc(t.mat)}</span>` : ""}
         <button class="task-del" data-task-del="${t.id}" type="button" title="Borrar tarea"><span class="material-symbols-outlined">close</span></button>
-      </label>`).join("");
+      </label>`;
+    }).join("");
     return `
     <section class="panel-sec">
       <div class="sec-head-row">
@@ -1328,13 +1331,17 @@
       </div>
       <div class="tasks-list">${rows || `<div class="empty-note">Sin tareas. Sumá una con «Nueva».</div>`}</div>
       <div class="task-add" id="task-add" hidden>
-        <input class="input sm" id="task-new-txt" maxlength="120" placeholder="¿Qué tenés que hacer?">
-        <label class="field-label visually-hidden" for="task-new-mat">Materia</label>
-        <select class="input sm" id="task-new-mat">
-          <option value="">General</option>
-          ${mats.map((m) => `<option value="${esc(m.name)}">${esc(m.name)}</option>`).join("")}
-        </select>
-        <button class="btn primary sm" id="task-new-save" type="button">Agregar</button>
+        <textarea class="input" id="task-new-txt" maxlength="280" rows="3" placeholder="¿Qué tenés que hacer? (Escribí acá, Enter para guardar)" style="resize:vertical; min-height:68px; font-size:14px; line-height:1.45; width:100%; box-sizing:border-box;"></textarea>
+        <div class="task-add-row">
+          <label class="field-label visually-hidden" for="task-new-mat">Materia</label>
+          <select class="input sm" id="task-new-mat" style="flex:1; min-width:0;">
+            <option value="">General (sin materia)</option>
+            ${mats.map((m) => `<option value="${esc(m.name)}">${esc(m.name)}</option>`).join("")}
+          </select>
+          <button class="btn primary sm" id="task-new-save" type="button" style="display:inline-flex; align-items:center; gap:4px; flex:none;">
+            <span class="material-symbols-outlined" style="font-size:16px;">add</span> Agregar
+          </button>
+        </div>
       </div>
     </section>`;
   }
@@ -1350,8 +1357,8 @@
         if (txt) txt.focus();
       }
     });
-    const btnSave = document.getElementById("task-new-save");
-    if (btnSave) btnSave.addEventListener("click", () => {
+
+    const doSave = () => {
       const txtEl = document.getElementById("task-new-txt");
       const matEl = document.getElementById("task-new-mat");
       const txt = txtEl ? txtEl.value.trim() : "";
@@ -1360,7 +1367,21 @@
       list.push({ id: Date.now().toString(36), txt, mat: matEl ? matEl.value : "", done: false, ts: Date.now() });
       saveTasksList(list);
       renderTareas();
-    });
+    };
+
+    const btnSave = document.getElementById("task-new-save");
+    if (btnSave) btnSave.addEventListener("click", doSave);
+
+    const txtEl = document.getElementById("task-new-txt");
+    if (txtEl) {
+      txtEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          doSave();
+        }
+      });
+    }
+
     document.querySelectorAll("[data-task-check]").forEach((c) => {
       c.addEventListener("change", () => {
         const list = tasksList();
