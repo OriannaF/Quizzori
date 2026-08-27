@@ -19,6 +19,43 @@
     { mat: "Planificación (Elec.)", com: "K3.4", dia: 2, ini: "18:10", fin: "22:40" }
   ];
   const DIAS_L = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+  const MONTH_NAMES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+  const MONTHS_SHORT = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+
+  const MAT_PALETTE = {
+    "diseno": { color: "#a855f7", bg: "rgba(168, 85, 247, 0.15)", name: "Diseño de Sistemas" },
+    "analisis": { color: "#3b82f6", bg: "rgba(59, 130, 246, 0.15)", name: "Análisis Matemático II" },
+    "am ii": { color: "#3b82f6", bg: "rgba(59, 130, 246, 0.15)", name: "AM II" },
+    "probabilidad": { color: "#10b981", bg: "rgba(16, 185, 129, 0.15)", name: "Probabilidad y Estadística" },
+    "desarrollo": { color: "#f59e0b", bg: "rgba(245, 158, 11, 0.15)", name: "Desarrollo de Software" },
+    "ads": { color: "#f59e0b", bg: "rgba(245, 158, 11, 0.15)", name: "ADS" },
+    "planificacion": { color: "#f43f5e", bg: "rgba(244, 63, 94, 0.15)", name: "Planificación" }
+  };
+  const MAT_FALLBACK_COLORS = ["#a855f7", "#3b82f6", "#10b981", "#f59e0b", "#f43f5e", "#06b6d4", "#f97316", "#14b8a6"];
+
+  function getMateriaColor(nameOrId) {
+    if (!nameOrId) return { color: "#3b82f6", bg: "rgba(59, 130, 246, 0.15)" };
+    const key = String(nameOrId).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    for (const k in MAT_PALETTE) {
+      if (key.includes(k)) return MAT_PALETTE[k];
+    }
+    let hash = 0;
+    for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) & 0xffffffff;
+    const c = MAT_FALLBACK_COLORS[Math.abs(hash) % MAT_FALLBACK_COLORS.length];
+    return { color: c, bg: c + "26" };
+  }
+
+  function materiaTagHTML(matName) {
+    if (!matName) return "";
+    const mc = getMateriaColor(matName);
+    return `<span class="mat-chip" style="background:${mc.bg}; border-color:${mc.color}60; color:${mc.color};"><span class="mat-dot" style="background:${mc.color};"></span><span>${esc(matName)}</span></span>`;
+  }
+
+  let activeCursosTab = "quizzes";
+  let calYear = new Date().getFullYear();
+  let calMonth = new Date().getMonth();
+  let calSelectedDay = null;
+  let showAllHomeQuizzes = false;
 
   const AGENDA = [
     { mat: "Análisis de sistemas", desc: "", tipo: "Final", fecha: "09/09/2026 16:00" },
@@ -674,7 +711,6 @@
   const EXAM_ICONS = ["school", "menu_book", "science", "calculate", "account_balance", "psychology", "biotech", "public"];
   const TONES = ["", "tone-green", "tone-purple"];
   const toneOf = (i) => TONES[i % TONES.length];
-  const MONTHS_SHORT = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
   function modeOptions(st) {
     return [
@@ -817,7 +853,7 @@
       <div class="exam-card-body">
         <div class="mat-titling">
           <h3>${esc(st.name)}</h3>
-          <span class="eyebrow ${toneCls}">${mat ? esc(mat.name) : "Sin materia"}</span>
+          ${mat ? materiaTagHTML(mat.name) : '<span class="eyebrow">Sin materia</span>'}
         </div>
         <div class="bar-row">
           <span class="mono-label muted">Avance</span>
@@ -961,34 +997,74 @@
     </div>`;
   }
 
-  function horarioHoyHTML() {
+  function homeDailyStripHTML() {
     const now = new Date();
-    const mins = (h) => { const p = h.split(":"); return (+p[0]) * 60 + (+p[1]); };
-    const cur = now.getHours() * 60 + now.getMinutes();
-    const items = HORARIOS.filter((x) => x.dia === now.getDay())
-      .sort((a, b) => mins(a.ini) - mins(b.ini));
-    const cards = items.map((x) => {
-      const live = cur >= mins(x.ini) && cur < mins(x.fin);
-      const past = !live && cur >= mins(x.fin);
-      return `
-      <div class="sched-card${live ? " live" : ""}${past ? " past" : ""}">
-        <p class="sched-h mono-label">${x.ini} – ${x.fin}</p>
-        <p class="sched-mat">${esc(x.mat)}</p>
-        <div class="sched-sub">
-          <span class="material-symbols-outlined">badge</span>
-          <span>${esc(x.com)}</span>
-          ${live ? '<span class="live-pill">Ahora</span>' : ""}
-        </div>
-      </div>`;
-    }).join("");
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const dayClasses = HORARIOS.filter((x) => x.dia === now.getDay());
+    let classTxt = "Hoy no cursás materias";
+    if (dayClasses.length) {
+      classTxt = dayClasses.map((c) => `${c.mat} (${c.ini} – ${c.fin})`).join(", ");
+    }
+
+    const nextEvals = AGENDA
+      .map((x) => ({ x, d: evalDateOf(x.fecha) }))
+      .filter((r) => r.d && !isNaN(r.d.getTime()))
+      .map((r) => { r.days = Math.round((r.d - today) / 86400000); return r; })
+      .filter((r) => r.days >= 0)
+      .sort((a, b) => a.d - b.d);
+    
+    const nextEv = nextEvals.length ? nextEvals[0] : null;
+    const nextTxt = nextEv 
+      ? `<b>${esc(nextEv.x.mat)}</b> (${nextEv.days === 0 ? "¡Hoy!" : nextEv.days === 1 ? "Mañana" : `en ${nextEv.days} días`})`
+      : "Sin fechas próximas";
+
     return `
-    <section class="panel-sec">
-      <div class="sec-head-row">
-        <h2>Horario de Hoy</h2>
-        <span class="day-pill mono-label">${DIAS_L[now.getDay()].slice(0, 3)} ${now.getDate()} ${MONTHS_SHORT[now.getMonth()]}</span>
+      <div class="home-daily-strip">
+        <div class="strip-card">
+          <div class="strip-icon"><span class="material-symbols-outlined">schedule</span></div>
+          <div class="strip-info">
+            <div class="strip-title">Horario de Hoy (${DIAS_L[now.getDay()].slice(0, 3)} ${now.getDate()})</div>
+            <div class="strip-val" title="${esc(classTxt)}">${esc(classTxt)}</div>
+          </div>
+        </div>
+        <div class="strip-card">
+          <div class="strip-icon" style="color:var(--amber);"><span class="material-symbols-outlined">event</span></div>
+          <div class="strip-info">
+            <div class="strip-title">Próximo Examen</div>
+            <div class="strip-val">${nextTxt}</div>
+          </div>
+        </div>
+        <div class="strip-card" style="cursor:pointer;" id="strip-go-horarios" title="Ver horario y calendario">
+          <div class="strip-icon" style="color:var(--accent);"><span class="material-symbols-outlined">calendar_month</span></div>
+          <div class="strip-info">
+            <div class="strip-title">Calendario & Horarios</div>
+            <div class="strip-val" style="color:var(--accent); display:flex; align-items:center; gap:4px;">
+              Ver calendario completo <span class="material-symbols-outlined" style="font-size:16px;">arrow_forward</span>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="sched-grid">${cards || `<div class="empty-note">Hoy no tenés clases. Buen día para repasar.</div>`}</div>
-    </section>`;
+    `;
+  }
+
+  function getQuizActivityScore(hash) {
+    const prog = S().progress || {};
+    let totalAttempts = 0;
+    let lastPlayed = 0;
+    const qz = S().questionnaires.find((x) => x.hash === hash);
+    if (!qz) return 0;
+    qz.questions.forEach((q) => {
+      const p = prog[q.id];
+      if (p) {
+        if (p.reps) totalAttempts += p.reps;
+        if (p.lastDate) {
+          const t = new Date(p.lastDate).getTime();
+          if (t > lastPlayed) lastPlayed = t;
+        }
+      }
+    });
+    const draftBonus = Quiz.draftOf(hash) ? 1000 : 0;
+    return (lastPlayed / 1000000) + totalAttempts * 10 + draftBonus;
   }
 
   function evalDateOf(s) {
@@ -1002,40 +1078,201 @@
     return /recup/i.test(tipo) ? "t-recu" : /final/i.test(tipo) ? "t-final" : /\btpi\b/i.test(tipo) ? "t-tpi" : "t-parcial";
   }
 
-  function nextEvalsHTML() {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const rows = AGENDA
-      .map((x) => ({ x, d: evalDateOf(x.fecha) }))
-      .filter((r) => r.d && !isNaN(r.d.getTime()))
-      .filter((r) => { r.days = Math.round((r.d - today) / 86400000); return r.days >= 0; })
-      .sort((a, b) => a.d - b.d)
-      .slice(0, 10);
-    if (!rows.length) {
-      return `
-      <div class="widget">
-        <div class="widget-head"><h3>Próximas evaluaciones</h3><span class="material-symbols-outlined">event_upcoming</span></div>
-        <div class="empty-note">Nada en el calendario.</div>
-      </div>`;
+  function getEventsForDate(y, m, d) {
+    const iso = `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const events = [];
+    
+    AGENDA.forEach((item) => {
+      const dt = evalDateOf(item.fecha);
+      if (dt && dt.getFullYear() === y && dt.getMonth() === m && dt.getDate() === d) {
+        events.push({
+          mat: item.mat,
+          desc: item.desc,
+          tipo: item.tipo,
+          color: getMateriaColor(item.mat)
+        });
+      }
+    });
+
+    const exams = Quiz.courseExamsMap();
+    const courses = loadCourses();
+    for (const cid in exams) {
+      if (exams[cid] === iso) {
+        const c = courses.find((x) => x && x.id === cid);
+        const name = c ? c.name : "Parcial";
+        if (!events.some((e) => e.mat.toLowerCase().includes(name.toLowerCase().slice(0, 5)))) {
+          events.push({
+            mat: name,
+            desc: "Fecha fijada",
+            tipo: "Parcial",
+            color: getMateriaColor(name)
+          });
+        }
+      }
     }
-    const items = rows.map(({ x, days }) => {
-      const short = String(x.fecha).replace(/\/\d{4}/g, "");
+    return events;
+  }
+
+  function monthlyCalendarHTML() {
+    const today = new Date();
+    const isCurMonth = today.getFullYear() === calYear && today.getMonth() === calMonth;
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+    const firstDayIndex = new Date(calYear, calMonth, 1).getDay();
+
+    const dayHeaders = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
+      .map((d) => `<div class="cal-col-header">${d}</div>`).join("");
+
+    let dayCells = "";
+    for (let i = 0; i < firstDayIndex; i++) {
+      dayCells += `<div class="cal-cell empty"></div>`;
+    }
+
+    let selectedEvents = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const isToday = isCurMonth && today.getDate() === d;
+      const isSelected = calSelectedDay === d;
+      const evs = getEventsForDate(calYear, calMonth, d);
+      if (isSelected || (!calSelectedDay && isToday && evs.length)) {
+        selectedEvents = evs.map((e) => ({ ...e, day: d }));
+      }
+      
+      const dotsHTML = evs.map((e) => 
+        `<span class="cal-event-dot" style="background:${e.color.color};" title="${esc(e.mat)}: ${esc(e.tipo)}"></span>`
+      ).join("");
+
+      dayCells += `
+        <div class="cal-cell ${isToday ? "today" : ""} ${isSelected ? "selected" : ""}" data-cal-day="${d}">
+          <div class="cal-cell-num">${d}</div>
+          <div class="cal-dots-list">${dotsHTML}</div>
+        </div>`;
+    }
+
+    let detailHTML = "";
+    if (selectedEvents.length) {
+      const dayNum = selectedEvents[0].day || calSelectedDay;
+      const items = selectedEvents.map((e) => `
+        <div class="cal-day-event-item">
+          <span class="mat-dot" style="background:${e.color.color};"></span>
+          <b>${esc(e.mat)}</b> · <span class="ev-tag ${evalTone(e.tipo)}">${esc(e.tipo)}</span>
+          ${e.desc ? `<span class="muted small">(${esc(e.desc)})</span>` : ""}
+        </div>
+      `).join("");
+      detailHTML = `
+        <div class="cal-day-detail-box">
+          <div class="cal-day-detail-title">📌 Evaluaciones para el ${dayNum} de ${MONTH_NAMES[calMonth]}:</div>
+          ${items}
+        </div>`;
+    }
+
+    const legendItems = [
+      { name: "Diseño de Sistemas", key: "diseno" },
+      { name: "Análisis Matemático II", key: "analisis" },
+      { name: "Probabilidad y Estadística", key: "probabilidad" },
+      { name: "Desarrollo de Software", key: "desarrollo" },
+      { name: "Planificación", key: "planificacion" }
+    ].map((m) => {
+      const mc = getMateriaColor(m.key);
+      return `<span class="cal-legend-item"><span class="mat-dot" style="background:${mc.color};"></span>${m.name}</span>`;
+    }).join("");
+
+    return `
+      <div class="cal-month-wrap">
+        <div class="cal-month-head">
+          <div class="sec-title">
+            <span class="material-symbols-outlined">calendar_month</span>
+            <h2>Calendario Mensual de Exámenes</h2>
+          </div>
+          <div class="cal-month-nav">
+            <button class="btn icon sm" id="btn-cal-prev" type="button" title="Mes anterior"><span class="material-symbols-outlined">chevron_left</span></button>
+            <span class="cal-month-title">${MONTH_NAMES[calMonth]} ${calYear}</span>
+            <button class="btn icon sm" id="btn-cal-next" type="button" title="Mes siguiente"><span class="material-symbols-outlined">chevron_right</span></button>
+            <button class="btn sm" id="btn-cal-today" type="button">Hoy</button>
+          </div>
+        </div>
+        <div class="cal-table-grid">
+          ${dayHeaders}
+          ${dayCells}
+        </div>
+        ${detailHTML}
+        <div class="cal-legend">
+          <span class="muted small" style="font-weight:700;">Referencias de color:</span>
+          ${legendItems}
+        </div>
+      </div>
+    `;
+  }
+
+  function bindMonthlyCalendar() {
+    const prev = document.getElementById("btn-cal-prev");
+    if (prev) prev.onclick = () => {
+      calMonth--;
+      if (calMonth < 0) { calMonth = 11; calYear--; }
+      calSelectedDay = null;
+      renderCursos();
+    };
+    const next = document.getElementById("btn-cal-next");
+    if (next) next.onclick = () => {
+      calMonth++;
+      if (calMonth > 11) { calMonth = 0; calYear++; }
+      calSelectedDay = null;
+      renderCursos();
+    };
+    const todayBtn = document.getElementById("btn-cal-today");
+    if (todayBtn) todayBtn.onclick = () => {
+      const now = new Date();
+      calYear = now.getFullYear();
+      calMonth = now.getMonth();
+      calSelectedDay = now.getDate();
+      renderCursos();
+    };
+    document.querySelectorAll("[data-cal-day]").forEach((cell) => {
+      cell.onclick = () => {
+        calSelectedDay = parseInt(cell.dataset.calDay, 10);
+        renderCursos();
+      };
+    });
+  }
+
+  function horarioSemanalHTML() {
+    const days = [
+      { d: 1, name: "Lunes" },
+      { d: 2, name: "Martes" },
+      { d: 3, name: "Miércoles" },
+      { d: 4, name: "Jueves" },
+      { d: 5, name: "Viernes" }
+    ];
+    const cols = days.map(({ d, name }) => {
+      const classes = HORARIOS.filter((h) => h.dia === d);
+      const items = classes.map((c) => {
+        const mc = getMateriaColor(c.mat);
+        return `
+        <div class="sched-card" style="border-left: 4px solid ${mc.color}; margin-bottom:8px;">
+          <p class="sched-h mono-label">${c.ini} – ${c.fin}</p>
+          <p class="sched-mat" style="font-size:13px; font-weight:700;">${esc(c.mat)}</p>
+          <div class="sched-sub">
+            <span class="material-symbols-outlined" style="font-size:14px;">badge</span>
+            <span>Com. ${esc(c.com)}</span>
+          </div>
+        </div>`;
+      }).join("") || `<div class="empty-note" style="padding:12px 8px; font-size:12px;">Sin clases</div>`;
       return `
-      <div class="ne-row${days <= 7 ? " soon" : ""}">
-        <div class="ne-info">
-          <span class="ne-mat">${esc(x.mat)}</span>
-          <span class="ev-tag ${evalTone(x.tipo)}">${esc(x.tipo)}</span>
+      <div style="flex:1; min-width:170px;">
+        <div class="sec-head-row" style="margin-bottom:8px;">
+          <h3 style="font-size:14px; font-weight:700;">${name}</h3>
         </div>
-        <div class="ne-meta">
-          <span class="ne-date mono-label">${esc(short)}</span>
-          <span class="ne-days"><b>${days}</b>${days === 1 ? "día" : "días"}</span>
-        </div>
+        <div>${items}</div>
       </div>`;
     }).join("");
+
     return `
-    <div class="widget">
-      <div class="widget-head"><h3>Próximas evaluaciones</h3><span class="material-symbols-outlined">event_upcoming</span></div>
-      <div class="next-evals">${items}</div>
-    </div>`;
+    <section class="panel-sec">
+      <div class="sec-head-row">
+        <div class="sec-title"><span class="material-symbols-outlined">schedule</span><h2>Horario Semanal de Cursada</h2></div>
+      </div>
+      <div style="display:flex; gap:12px; overflow-x:auto; padding-bottom:8px;">
+        ${cols}
+      </div>
+    </section>`;
   }
 
   function agendaHTML() {
@@ -1045,7 +1282,7 @@
       const past = d ? d < today : false;
       return `
       <div class="eval-row${past ? " past" : ""}">
-        <span class="ev-mat">${esc(x.mat)}</span>
+        <span class="ev-mat">${materiaTagHTML(x.mat)}</span>
         <span class="ev-desc">${x.desc ? esc(x.desc) : "—"}</span>
         <span class="ev-tag ${evalTone(x.tipo)}">${esc(x.tipo)}</span>
         <span class="ev-date">${esc(x.fecha)}</span>
@@ -1054,7 +1291,7 @@
     return `
     <section class="panel-sec">
       <div class="sec-head-row">
-        <div class="sec-title"><span class="material-symbols-outlined">edit_calendar</span><h2>Agenda de Evaluaciones</h2></div>
+        <div class="sec-title"><span class="material-symbols-outlined">edit_calendar</span><h2>Agenda Completa de Evaluaciones</h2></div>
         <span class="day-pill mono-label">${AGENDA.length} fechas</span>
       </div>
       <div class="eval-head"><span>Materia</span><span>Descripción</span><span>Tipo</span><span>Fecha</span></div>
@@ -1149,25 +1386,44 @@
   }
 
   function renderHome() {
-    const qs = S().questionnaires;
+    const qs = S().questionnaires.slice();
     const restricted = canViewRestricted();
 
-    const activeCards = qs.map((qq, i) => {
+    // Sort quizzes by activity (most frequent/recent first)
+    qs.sort((a, b) => getQuizActivityScore(b.hash) - getQuizActivityScore(a.hash));
+
+    const totalQz = qs.length;
+    const limit = (!showAllHomeQuizzes && totalQz > 2) ? 2 : totalQz;
+    const displayQs = qs.slice(0, limit);
+
+    const activeCards = displayQs.map((qq, i) => {
       const st = Quiz.statsFor(qq.hash);
       if (!st) return "";
       return activeCardHTML(qq, i, st);
     }).join("");
 
+    const toggleBar = totalQz > 2 ? `
+      <div class="frequent-toggle-bar">
+        <span class="frequent-badge">
+          <span class="material-symbols-outlined" style="font-size:15px;">bolt</span>
+          ${showAllHomeQuizzes ? `Mostrando todos los cuestionarios (${totalQz})` : `Tus ${limit} cuestionarios más frecuentes`}
+        </span>
+        <button class="link-btn" id="btn-toggle-quizzes" type="button">
+          ${showAllHomeQuizzes ? `Mostrar solo los más frecuentes (2)` : `Ver todos (${totalQz})`}
+        </button>
+      </div>` : "";
+
     view(`
       <div class="home-wrap">
+        ${restricted ? homeDailyStripHTML() : ""}
         <div class="home-grid">
           <div class="hg-main">
-            ${restricted ? horarioHoyHTML() : ""}
             <section class="panel-sec">
               <div class="sec-head-row">
                 <div class="sec-title"><span class="material-symbols-outlined">bolt</span><h2>Quizzes activos</h2></div>
-                <button class="link-btn" id="btn-ver-todos">Ver todos</button>
+                <button class="link-btn" id="btn-ver-todos">Ir a Materias →</button>
               </div>
+              ${toggleBar}
               <div class="exam-grid cols-2">${activeCards || `
                 <div class="card center">
                   <h2>Nada por acá todavía</h2>
@@ -1177,24 +1433,40 @@
             </section>
           </div>
           <aside class="hg-side">
-            ${restricted ? nextEvalsHTML() : ""}
             ${restricted ? `<div id="home-tareas">${tareasHTML()}</div>` : ""}
           </aside>
-        </div>
-        <div class="home-bottom">
-          ${restricted ? `<div id="home-dates">${agendaHTML()}</div>` : ""}
         </div>
       </div>
     `);
 
-    qs.forEach((qq) => bindExamCard(qq.hash, qq));
+    displayQs.forEach((qq) => bindExamCard(qq.hash, qq));
     bindTareas();
+
+    const toggleBtn = document.getElementById("btn-toggle-quizzes");
+    if (toggleBtn) {
+      toggleBtn.addEventListener("click", () => {
+        showAllHomeQuizzes = !showAllHomeQuizzes;
+        renderHome();
+      });
+    }
+
+    const stripGo = document.getElementById("strip-go-horarios");
+    if (stripGo) {
+      stripGo.addEventListener("click", () => {
+        activeCursosTab = "horarios";
+        navigate("cursos");
+      });
+    }
+
     const verTodos = document.getElementById("btn-ver-todos");
-    if (verTodos) verTodos.addEventListener("click", () => navigate("cursos"));
+    if (verTodos) verTodos.addEventListener("click", () => {
+      activeCursosTab = "quizzes";
+      navigate("cursos");
+    });
     const emptyBtn = document.getElementById("btn-empty-cursos");
-    if (emptyBtn) emptyBtn.addEventListener("click", () => navigate("cursos"));
-    document.querySelectorAll("[data-go-cursos]").forEach((el) => {
-      el.addEventListener("click", () => navigate("cursos"));
+    if (emptyBtn) emptyBtn.addEventListener("click", () => {
+      activeCursosTab = "quizzes";
+      navigate("cursos");
     });
   }
 
@@ -1339,7 +1611,7 @@
           <div class="mat-main">
             <div class="mat-top">
               <div class="mat-titling">
-                <span class="eyebrow ${toneCls}">${status}</span>
+                <div style="margin-bottom:4px;">${materiaTagHTML(c.name)}</div>
                 <h3>${esc(c.name)}${owner ? `
                 <button class="mini-edit" data-rename-course="${c.id}" title="Renombrar materia">
                   <span class="material-symbols-outlined">edit</span>
@@ -1632,6 +1904,29 @@
       return st ? questionnaireCardHTML(st, i) : "";
     };
 
+    const tabsHTML = `
+      <div class="sub-nav-tabs">
+        <button class="sub-nav-tab ${activeCursosTab === 'quizzes' ? 'active' : ''}" id="tab-sub-quizzes" type="button">
+          <span class="material-symbols-outlined">auto_stories</span> Mis Materias y Quizzes
+        </button>
+        <button class="sub-nav-tab ${activeCursosTab === 'horarios' ? 'active' : ''}" id="tab-sub-horarios" type="button">
+          <span class="material-symbols-outlined">calendar_month</span> Horarios y Calendario
+        </button>
+      </div>`;
+
+    if (activeCursosTab === "horarios") {
+      view(`
+        ${tabsHTML}
+        ${monthlyCalendarHTML()}
+        ${horarioSemanalHTML()}
+        ${agendaHTML()}
+      `);
+      bindMonthlyCalendar();
+      const tabQ = document.getElementById("tab-sub-quizzes");
+      if (tabQ) tabQ.onclick = () => { activeCursosTab = "quizzes"; renderCursos(); };
+      return;
+    }
+
     let coursesGrid;
     let headSub;
     let freeSection = "";
@@ -1664,6 +1959,7 @@
     }
 
     view(`
+      ${tabsHTML}
       <section class="home-section">
         <div class="sec-head">
           <span class="material-symbols-outlined">auto_stories</span>
@@ -1713,6 +2009,8 @@
       </section>
     `);
 
+    const tabH = document.getElementById("tab-sub-horarios");
+    if (tabH) tabH.onclick = () => { activeCursosTab = "horarios"; renderCursos(); };
     const nb = document.getElementById("btn-new-course");
     if (nb) nb.onclick = createCourse;
     document.querySelectorAll("[data-open-course]").forEach((b) => {
