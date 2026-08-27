@@ -139,6 +139,37 @@ const QuizStore = (() => {
     emit();
   }
 
+  function exportData() {
+    const snap = snapshot();
+    return {
+      version: 1,
+      exportedAt: Date.now(),
+      data: snap.kv,
+      times: snap.times
+    };
+  }
+
+  function importData(raw) {
+    let parsed = raw;
+    if (typeof raw === "string") {
+      try { parsed = JSON.parse(raw); } catch (e) { return { ok: false, error: "JSON inválido" }; }
+    }
+    if (!parsed || typeof parsed !== "object") return { ok: false, error: "Formato no válido" };
+    const kv = parsed.data || parsed.kv || parsed;
+    const times = parsed.times || {};
+    let count = 0;
+    Object.keys(kv).forEach((k) => {
+      if (String(k).indexOf("quiz.") === 0) {
+        set(k, kv[k]);
+        if (times[k]) keytimes[k] = times[k];
+        count++;
+      }
+    });
+    try { store.setItem("quiz.keytimes", JSON.stringify(keytimes)); } catch (e) {}
+    emit();
+    return { ok: true, count };
+  }
+
   function onChange(fn) {
     if (typeof fn === "function") listeners.push(fn);
   }
@@ -151,7 +182,8 @@ const QuizStore = (() => {
     loadCourseExamHoras, saveCourseExamHoras,
     loadTasks, saveTasks,
     loadGameStats, saveGameStats,
-    snapshot, restore, clearAll, onChange
+    snapshot, restore, clearAll, onChange,
+    exportData, importData
   };
 })();
 

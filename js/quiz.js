@@ -321,6 +321,9 @@ const Quiz = (() => {
     const hash = S.currentHash || S.hash;
     Store.saveProgress(hash, S.progress);
     Store.clearDraft(hash);
+    if (hasWindow && window.Cloud && typeof window.Cloud.flush === "function") {
+      window.Cloud.flush();
+    }
     return S.results;
   }
 
@@ -561,9 +564,27 @@ const Quiz = (() => {
     return ids.map(id => q.questions[id]).filter(Boolean);
   }
 
+  function reloadProgress() {
+    const hash = S.currentHash || S.hash;
+    if (hash && hash !== "all") {
+      S.progress = Store.loadProgress(hash);
+    }
+    loadExamDates();
+  }
+
+  if (Store && typeof Store.onChange === "function") {
+    Store.onChange(() => {
+      const hash = S.currentHash || S.hash;
+      if (hash && hash !== "all") {
+        S.progress = Store.loadProgress(hash);
+      }
+      refreshMateriaCut();
+    });
+  }
+
   return {
     S, loadCsv, tryLoadSaved, newSession, repeatSession, failedSession, toggle, setSlot, setFill,
-    isAnswered, answeredCount, submit, tryResume, resetProgress,
+    isAnswered, answeredCount, submit, tryResume, resetProgress, reloadProgress,
     persistSettings, setSize, setPoints, setMode, setCat, setExamDate, setCatExamDate, quizDate, catDate,
     stats, failedCount, todayCount, newCount, scheduledByDay, questionsOnDay, scoreQuestion,
     selectQuestionnaire, examDateFor, setExamDateFor, statsFor, draftOf, resetProgressFor,

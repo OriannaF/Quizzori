@@ -319,7 +319,7 @@
 
   function loadSource() {
     const loadOne = (url, name) =>
-      fetch(`${url}?v=52`)
+      fetch(`${url}?v=53`)
         .then((r) => (r.ok ? r.text() : Promise.reject(new Error("no file"))))
         .then((txt) => {
           if (!txt.trim()) return { ok: false, skipped: true };
@@ -358,6 +358,7 @@
     let wasOwner = isOwner();
     const paint = () => {
       const u = Cloud && Cloud.user();
+      const st = Cloud && typeof Cloud.syncState === "function" ? Cloud.syncState() : "idle";
       const full = u ? (u.name || u.email || "Cuenta") : "";
       const shortName = full.trim().split(/\s+/)[0] || "Cuenta";
       if (ic) ic.textContent = u ? "logout" : "person";
@@ -365,15 +366,19 @@
         label.textContent = u ? full : "Entrar";
         const sub = label.parentElement && label.parentElement.querySelector("small");
         if (sub) {
-          sub.textContent = u ? "Cerrar sesión" : "Iniciar sesión";
+          sub.textContent = u ? (st === "syncing" ? "Sincronizando…" : "Cerrar sesión") : "Iniciar sesión";
           sub.style.display = "";
         }
       }
-      if (aic) aic.textContent = "person";
-      if (aname) aname.textContent = u ? shortName : "Entrar";
+      if (aic) {
+        aic.textContent = st === "syncing" ? "sync" : (st === "saved" && u ? "cloud_done" : "person");
+      }
+      if (aname) {
+        aname.textContent = u ? (st === "syncing" ? "Guardando…" : shortName) : "Entrar";
+      }
       btns.forEach((b) => {
         b.title = !u ? "Iniciar sesión con Google y sincronizar progreso"
-          : full + " · clic para cerrar sesión";
+          : full + (st === "syncing" ? " (guardando…)" : " · clic para cerrar sesión");
       });
       const nowOwner = isOwner();
       if (nowOwner !== wasOwner && (currentView === "inicio" || currentView === "cursos")) refreshView();
@@ -409,6 +414,22 @@
     });
     if (Cloud) Cloud.onChange(paint);
     paint();
+  }
+
+  let refreshTimer = null;
+  function scheduleViewRefresh() {
+    if (document.body.classList.contains("quiz-open") || (window.Quiz && window.Quiz.S && window.Quiz.S.items && window.Quiz.S.items.length > 0)) return;
+    if (refreshTimer) clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(() => {
+      refreshTimer = null;
+      if (document.body.classList.contains("quiz-open") || (window.Quiz && window.Quiz.S && window.Quiz.S.items && window.Quiz.S.items.length > 0)) return;
+      if (currentView === "inicio" || currentView === "progreso" || currentView === "cursos") {
+        refreshView();
+      }
+    }, 300);
+  }
+  if (typeof window !== "undefined" && window.Cloud && typeof window.Cloud.onChange === "function") {
+    window.Cloud.onChange(scheduleViewRefresh);
   }
 
   const NAV_SEL = "#main-nav .nav-item, #bottom-nav .nav-item";
@@ -1734,21 +1755,71 @@
           <aside class="col-side">${weekChartHTML()}${studyWidgetHTML()}</aside>
         </div>
       </section>
-      ${Cloud && Cloud.isConfigured() && Cloud.user() ? `
       <section class="home-section">
         <div class="card">
           <div class="card-head">
-            <h2>Zona de sincronización</h2>
+            <h2>Copia de seguridad y datos</h2>
           </div>
-          <p class="muted small">Tu progreso se está sincronizando en la nube entre este dispositivo y otros donde inicies sesión con tu cuenta.</p>
-          <button class="btn danger" id="btn-reset-all" type="button">Reiniciar todo el progreso (este dispositivo + nube)</button>
+          <p class="muted small">Podés exportar todo tu progreso y configuración en un archivo JSON para tener un respaldo o transferirlo a otro dispositivo.</p>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+            <button class="btn sm" id="btn-export-backup" type="button"><span class="material-symbols-outlined">download</span> Exportar copia (JSON)</button>
+            <label class="btn sm" style="cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+              <span class="material-symbols-outlined">upload</span> Restaurar copia
+              <input type="file" id="input-import-backup" accept=".json" style="display:none;">
+            </label>
+            ${Cloud && Cloud.isConfigured() && Cloud.user() ? `
+            <button class="btn danger sm" id="btn-reset-all" type="button">Reiniciar progreso</button>
+            ` : ""}
+          </div>
         </div>
-      </section>` : ""}
+      </section>
     `);
 
     paintHomeStudyWidget();
     const warnClose = document.getElementById("btn-warn-close");
     if (warnClose) warnClose.addEventListener("click", () => { warningsDismissed = true; refreshView(); });
+    const expBtn = document.getElementById("btn-export-backup");
+    if (expBtn) {
+      expBtn.addEventListener("click", () => {
+        if (!window.QuizStore || !window.QuizStore.exportData) return;
+        const data = window.QuizStore.exportData();
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        const dateStr = new Date().toISOString().slice(0, 10);
+        a.href = url;
+        a.download = `studori-backup-${dateStr}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast("Copia de seguridad descargada.");
+      });
+    }
+    const impInput = document.getElementById("input-import-backup");
+    if (impInput) {
+      impInput.addEventListener("change", (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const res = window.QuizStore.importData(reader.result);
+            if (res.ok) {
+              if (window.Quiz && window.Quiz.reloadProgress) window.Quiz.reloadProgress();
+              if (window.Cloud && window.Cloud.flush) window.Cloud.flush();
+              toast(`Restaurados ${res.count} registros.`);
+              refreshView();
+            } else {
+              toast("Error al importar: " + (res.error || "formato inválido"));
+            }
+          } catch (err) {
+            toast("No se pudo leer el archivo.");
+          }
+        };
+        reader.readAsText(file);
+      });
+    }
     const resetAll = document.getElementById("btn-reset-all");
     if (resetAll) resetAll.addEventListener("click", () => {
       if (!confirm("¿Seguro que querés borrar TODO el progreso (de todos los cuestionarios, en este dispositivo y en la nube)? Esta acción no se puede deshacer.")) return;

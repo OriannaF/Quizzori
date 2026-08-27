@@ -49,12 +49,13 @@
     let storeUnsub = null;
     let started = false;
     let listenerAttached = false;
+    let syncState = "idle";
     const REDIRECT_FLAG = "quiz.cloud.redirect";
     const cbs = [];
     const emit = () => cbs.forEach((fn) => { try { fn(user); } catch (e) {} });
 
     const encKey = (k) => String(k).replace(/\./g, "__");
-    const decKey = (k) => String(k).replace(/__/g, ".");
+    const decKey = (k) => String(k).replace(/_+/g, ".");
 
     function loadSdk() {
       return new Promise((resolve, reject) => {
@@ -107,13 +108,32 @@
       return { kv, times, savedAt };
     }
 
+    function snapFromDoc(d) {
+      const rk = (d && d.kv) || {};
+      const rt = (d && d.times) || {};
+      const kv = {}, times = {};
+      Object.keys(rk).forEach((k) => {
+        const rawKey = decKey(k);
+        kv[rawKey] = rk[k];
+        times[rawKey] = rt[k] || 0;
+      });
+      return { kv, times };
+    }
+
     async function pushNow() {
       if (!fb || !user) return;
+      syncState = "syncing";
+      emit();
       try {
         const snap = window.QuizStore.snapshot();
         await fb.firestore().collection("users").doc(user.uid)
           .set(docFromSnap(snap, Date.now()));
-      } catch (e) {}
+        syncState = "saved";
+        emit();
+      } catch (e) {
+        syncState = "error";
+        emit();
+      }
     }
 
     function schedulePush() {
@@ -121,25 +141,31 @@
       pushTimer = setTimeout(() => { pushTimer = null; pushNow(); }, 2500);
     }
 
-    function flush() { if (pushTimer) { clearTimeout(pushTimer); pushTimer = null; pushNow(); } }
+    function flush() {
+      if (pushTimer) { clearTimeout(pushTimer); pushTimer = null; }
+      return pushNow();
+    }
 
     async function pullMergeAndPush() {
       if (!fb || !user) return;
+      syncState = "syncing";
+      emit();
       try {
         const ref = fb.firestore().collection("users").doc(user.uid);
         const doc = await ref.get();
         const local = window.QuizStore.snapshot();
         if (doc.exists) {
-          const d = doc.data() || {};
-          const remote = { kv: d.kv || {}, times: d.times || {} };
+          const remote = snapFromDoc(doc.data() || {});
           const merged = mergeSnap(local, remote);
           window.QuizStore.restore(merged.kv, merged.times);
           await ref.set(docFromSnap(merged, Date.now()));
         } else {
           await ref.set(docFromSnap(local, Date.now()));
         }
+        syncState = "saved";
         emit();
       } catch (e) {
+        syncState = "error";
         emit();
       }
     }
@@ -155,6 +181,7 @@
 
     function stopSession() {
       user = null;
+      syncState = "idle";
       if (storeUnsub) { storeUnsub(); storeUnsub = null; }
       if (pushTimer) { clearTimeout(pushTimer); pushTimer = null; }
       emit();
@@ -180,10 +207,11 @@
 
     function trySetLocalPersistence() {
       try {
-        const A = fb.auth();
-        const P = (A.Auth && A.Auth.Persistence) || A;
-        const localP = P.LOCAL || (fb.auth.browserLocalPersistence);
-        if (localP) A.setPersistence(localP).catch(() => {});
+        if (fb && fb.auth) {
+          const P = (window.firebase && window.firebase.auth && window.firebase.auth.Auth && window.firebase.auth.Auth.Persistence) || {};
+          const localP = P.LOCAL || "local";
+          fb.auth().setPersistence(localP).catch(() => {});
+        }
       } catch (e) {}
     }
 
@@ -260,27 +288,40 @@
       started = true;
       let pendingRedirect = false;
       try { pendingRedirect = localStorage.getItem(REDIRECT_FLAG) === "1"; } catch (e) {}
-      setTimeout(() => { ensureLoaded().catch(() => {}); }, 1200);
-      if (pendingRedirect) {
-        try { localStorage.removeItem(REDIRECT_FLAG); } catch (e) {}
-        ensureLoaded().then(() => fb.auth().getRedirectResult()).then((res) => {
-          if (res && res.user && (!user || user.uid !== res.user.uid)) startSession(res.user);
-        }).catch(() => {});
-      }
+      ensureLoaded().then(() => {
+        if (fb && fb.auth) {
+          fb.auth().getRedirectResult().then((res) => {
+            if (res && res.user && (!user || user.uid !== res.user.uid)) {
+              startSession(res.user);
+            }
+          }).catch(() => {});
+        }
+        if (pendingRedirect) {
+          try { localStorage.removeItem(REDIRECT_FLAG); } catch (e) {}
+        }
+      }).catch(() => {});
     }
 
-    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flush(); });
-    window.addEventListener("beforeunload", flush);
+    if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
+      document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flush(); });
+    }
+    if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+      window.addEventListener("beforeunload", flush);
+    }
 
     return {
       isConfigured, init, signIn, signOut, warm: () => { ensureLoaded().catch(() => {}); },
       user: () => user,
+      syncState: () => syncState,
+      flush,
       isAdmin, isVerified, ensureDb,
       fetchPublicCourses, publishCourses,
       resetProgress,
+      snapFromDoc, docFromSnap, encKey, decKey,
       onChange: (fn) => { if (typeof fn === "function") cbs.push(fn); }
     };
   })();
 
   if (typeof window !== "undefined") window.Cloud = Cloud;
+  if (typeof module !== "undefined" && module.exports) module.exports = Cloud;
 })();
