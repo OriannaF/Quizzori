@@ -1,4 +1,4 @@
-# AGENTS.md — Quizzori
+# AGENTS.md — Studori
 
 App estática de estudio (quizzes con repetición espaciada) deployada en GitHub Pages.
 Vanilla JS sin build. Idioma de la UI y de los commits: español rioplatense.

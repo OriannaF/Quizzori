@@ -1,6 +1,6 @@
-# Quizzori · GitHub Pages
+# Studori · GitHub Pages
 
-Quizzori es un cuestionario de opción múltiple (de 2 a 8 opciones, con varias respuestas correctas) que se arma desde un archivo CSV y se publica gratis en GitHub Pages. Todo corre en el navegador: sin servidor, sin base de datos.
+Studori es un cuestionario de opción múltiple (de 2 a 8 opciones, con varias respuestas correctas) que se arma desde un archivo CSV y se publica gratis en GitHub Pages. Todo corre en el navegador: sin servidor, sin base de datos.
 
 ## Publicarlo
 

@@ -159,7 +159,7 @@
     const tstr = `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
     timeEl.textContent = tstr;
     try {
-      document.title = pomo.running ? `${tstr} · ${pomoLabel()} — Quizzori` : "Quizzori";
+      document.title = pomo.running ? `${tstr} · ${pomoLabel()} — Studori` : "Studori";
     } catch (err) {}
     timeEl.title = pomoLabel();
     playEl.querySelector(".material-symbols-outlined").textContent = pomo.running ? "pause" : "play_arrow";
@@ -510,7 +510,7 @@
     const MAIL = "oriannafernandezdelrosario@gmail.com";
     const subject = `Solicitud: nueva materia "${nombre}"`;
     const body = [
-      `Quiero agregar la materia "${nombre}" a Quizzori.`,
+      `Quiero agregar la materia "${nombre}" a Studori.`,
       "",
       `Cuestionario: ${ctx.name}`,
       `Preguntas detectadas: ${ctx.questions}`,
