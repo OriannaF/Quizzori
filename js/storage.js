@@ -100,11 +100,42 @@ const QuizStore = (() => {
     return { kv, times };
   }
 
-  function restore(kv) {
+  function setQuiet(k, v) {
+    try {
+      store.setItem(k, JSON.stringify(v));
+      if (isSyncKey(k)) known.add(k);
+    } catch (e) {}
+  }
+
+  function restore(kv, times) {
     Object.keys(kv || {}).forEach((k) => {
       known.add(k);
-      set(k, kv[k]);
+      setQuiet(k, kv[k]);
+      if (times && typeof times[k] === "number") keytimes[k] = times[k];
     });
+    emit();
+  }
+
+  function clearAll() {
+    const toRemove = Array.from(known).concat(
+      (() => {
+        const ks = [];
+        try {
+          for (let i = 0; i < store.length; i++) {
+            const k = store.key(i);
+            if (String(k).indexOf("quiz.") === 0 && String(k).indexOf("quiz.cloud.") !== 0) ks.push(k);
+          }
+        } catch (e) {}
+        return ks;
+      })()
+    );
+    toRemove.forEach((k) => {
+      try { store.removeItem(k); } catch (e) {}
+      known.delete(k);
+      delete keytimes[k];
+    });
+    try { store.setItem("quiz.keytimes", "{}"); } catch (e) {}
+    keytimes = {};
     emit();
   }
 
@@ -120,7 +151,7 @@ const QuizStore = (() => {
     loadCourseExamHoras, saveCourseExamHoras,
     loadTasks, saveTasks,
     loadGameStats, saveGameStats,
-    snapshot, restore, onChange
+    snapshot, restore, clearAll, onChange
   };
 })();
 

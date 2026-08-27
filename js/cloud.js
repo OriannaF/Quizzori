@@ -133,7 +133,7 @@
           const d = doc.data() || {};
           const remote = { kv: d.kv || {}, times: d.times || {} };
           const merged = mergeSnap(local, remote);
-          window.QuizStore.restore(merged.kv);
+          window.QuizStore.restore(merged.kv, merged.times);
           await ref.set(docFromSnap(merged, Date.now()));
         } else {
           await ref.set(docFromSnap(local, Date.now()));
@@ -173,8 +173,18 @@
       if (fb) return Promise.resolve();
       return loadSdk().then((firebase) => {
         initFb(firebase);
+        trySetLocalPersistence();
         attachAuthListener();
       });
+    }
+
+    function trySetLocalPersistence() {
+      try {
+        const A = fb.auth();
+        const P = (A.Auth && A.Auth.Persistence) || A;
+        const localP = P.LOCAL || (fb.auth.browserLocalPersistence);
+        if (localP) A.setPersistence(localP).catch(() => {});
+      } catch (e) {}
     }
 
     function doRedirect(provider) {
@@ -237,6 +247,14 @@
       return fb.auth().signOut().catch(() => {});
     }
 
+    async function resetProgress() {
+      if (!fb || !user) return;
+      try {
+        await fb.firestore().collection("users").doc(user.uid).delete();
+      } catch (e) {}
+      if (window.QuizStore && window.QuizStore.clearAll) window.QuizStore.clearAll();
+    }
+
     function init() {
       if (started || !isConfigured()) return;
       started = true;
@@ -259,6 +277,7 @@
       user: () => user,
       isAdmin, isVerified, ensureDb,
       fetchPublicCourses, publishCourses,
+      resetProgress,
       onChange: (fn) => { if (typeof fn === "function") cbs.push(fn); }
     };
   })();

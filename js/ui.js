@@ -1734,11 +1734,31 @@
           <aside class="col-side">${weekChartHTML()}${studyWidgetHTML()}</aside>
         </div>
       </section>
+      ${Cloud && Cloud.isConfigured() && Cloud.user() ? `
+      <section class="home-section">
+        <div class="card">
+          <div class="card-head">
+            <h2>Zona de sincronización</h2>
+          </div>
+          <p class="muted small">Tu progreso se está sincronizando en la nube entre este dispositivo y otros donde inicies sesión con tu cuenta.</p>
+          <button class="btn danger" id="btn-reset-all" type="button">Reiniciar todo el progreso (este dispositivo + nube)</button>
+        </div>
+      </section>` : ""}
     `);
 
     paintHomeStudyWidget();
     const warnClose = document.getElementById("btn-warn-close");
     if (warnClose) warnClose.addEventListener("click", () => { warningsDismissed = true; refreshView(); });
+    const resetAll = document.getElementById("btn-reset-all");
+    if (resetAll) resetAll.addEventListener("click", () => {
+      if (!confirm("¿Seguro que querés borrar TODO el progreso (de todos los cuestionarios, en este dispositivo y en la nube)? Esta acción no se puede deshacer.")) return;
+      if (window.Cloud && typeof window.Cloud.resetProgress === "function") {
+        window.Cloud.resetProgress().then(refreshView);
+      } else {
+        window.QuizStore.clearAll();
+        refreshView();
+      }
+    });
   }
 
   function conexLoad() {
