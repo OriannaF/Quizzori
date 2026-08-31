@@ -25,10 +25,10 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@700;800&family=Manrope:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,500,1,0&display=swap">
   </noscript>
-  <link rel="preload" as="fetch" href="data/cuestionario.csv?v=58" crossorigin>
-  <link rel="preload" as="fetch" href="data/cuestionario%20Burpleria.csv?v=58" crossorigin>
-  <link rel="preload" as="fetch" href="data/cuestionario%20Primer%20Parcial%202026.csv?v=58" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=58">
+  <link rel="preload" as="fetch" href="data/cuestionario.csv?v=59" crossorigin>
+  <link rel="preload" as="fetch" href="data/cuestionario%20Burpleria.csv?v=59" crossorigin>
+  <link rel="preload" as="fetch" href="data/cuestionario%20Primer%20Parcial%202026.csv?v=59" crossorigin>
+  <link rel="stylesheet" href="css/style.css?v=59">
 </head>
 <body>
   <div class="bg-glow" aria-hidden="true">
@@ -77,10 +77,10 @@
             <label>Pausa larga (min)<input type="number" id="pomo-long" min="1" max="60" value="15"></label>
           </div>
         </div>
-        <div class="user-chip" id="user-chip" title="Estado de sincronización">
-          <span class="material-symbols-outlined user-avatar">cloud</span>
-          <span class="user-name" id="user-display">Local</span>
-        </div>
+        <button class="acct-chip" id="acct-btn" type="button" title="Iniciar sesión con Google y sincronizar progreso">
+          <span class="material-symbols-outlined" id="acct-ic">cloud</span>
+          <span class="acct-name" id="acct-name">Local</span>
+        </button>
       </div>
     </div>
   </header>
@@ -89,26 +89,14 @@
     <div class="card p-xl tc text-muted">Cargando cuestionarios…</div>
   </main>
 
-  <nav class="nav nav-bottom" id="bottom-nav" aria-label="Secciones">
-    <a href="#" class="nav-item active" data-view="inicio">
-      <span class="material-symbols-outlined">home</span><span>Inicio</span>
-    </a>
-    <a href="#" class="nav-item" data-view="cursos">
-      <span class="material-symbols-outlined">auto_stories</span><span>Materias</span>
-    </a>
-    <a href="#" class="nav-item" data-view="juegos">
-      <span class="material-symbols-outlined">extension</span><span>Juegos</span>
-    </a>
-  </nav>
-
-  <script src="js/storage.js?v=58"></script>
-  <script src="js/csv.js?v=58"></script>
-  <script src="js/scheduler.js?v=58"></script>
-  <script src="js/quiz.js?v=58"></script>
-  <script src="js/game.js?v=58"></script>
-  <script src="js/crossword.js?v=58"></script>
-  <script src="js/cloud.js?v=58"></script>
-  <script src="js/ui.js?v=58"></script>
+  <script src="js/storage.js?v=59"></script>
+  <script src="js/csv.js?v=59"></script>
+  <script src="js/scheduler.js?v=59"></script>
+  <script src="js/quiz.js?v=59"></script>
+  <script src="js/game.js?v=59"></script>
+  <script src="js/crossword.js?v=59"></script>
+  <script src="js/cloud.js?v=59"></script>
+  <script src="js/ui.js?v=59"></script>
   <script>
     document.addEventListener("DOMContentLoaded", function () {
       window.UI.init();

@@ -374,7 +374,7 @@
 
   function loadSource() {
     const loadOne = (url, name) =>
-      fetch(`${url}?v=58`)
+      fetch(`${url}?v=59`)
         .then((r) => (r.ok ? r.text() : Promise.reject(new Error("no file"))))
         .then((txt) => {
           if (!txt.trim()) return { ok: false, skipped: true };
@@ -402,13 +402,12 @@
   function initCloudUI() {
     const Cloud = window.Cloud;
     const sideBtn = document.getElementById("cloud-btn");
-    const topBtn = document.getElementById("acct-btn");
+    const topBtn = document.getElementById("acct-btn") || document.getElementById("user-chip");
     const btns = [sideBtn, topBtn].filter(Boolean);
-    if (!btns.length) return;
     const ic = document.getElementById("cloud-ic");
     const label = document.getElementById("cloud-label");
-    const aic = document.getElementById("acct-ic");
-    const aname = document.getElementById("acct-name");
+    const aic = document.getElementById("acct-ic") || (topBtn ? topBtn.querySelector(".material-symbols-outlined") : null);
+    const aname = document.getElementById("acct-name") || document.getElementById("user-display");
     if (Cloud && Cloud.isConfigured()) Cloud.init();
     let wasOwner = isOwner();
     const paint = () => {
@@ -416,6 +415,9 @@
       const st = Cloud && typeof Cloud.syncState === "function" ? Cloud.syncState() : "idle";
       const full = u ? (u.name || u.email || "Cuenta") : "";
       const shortName = full.trim().split(/\s+/)[0] || "Cuenta";
+      if (topBtn) {
+        topBtn.classList.toggle("logged-in", !!u);
+      }
       if (ic) ic.textContent = u ? "logout" : "person";
       if (label) {
         label.textContent = u ? full : "Entrar";
@@ -426,14 +428,14 @@
         }
       }
       if (aic) {
-        aic.textContent = st === "syncing" ? "sync" : (st === "saved" && u ? "cloud_done" : "person");
+        aic.textContent = st === "syncing" ? "sync" : (u ? "cloud_done" : "cloud");
       }
       if (aname) {
-        aname.textContent = u ? (st === "syncing" ? "Guardando…" : shortName) : "Entrar";
+        aname.textContent = u ? (st === "syncing" ? "Guardando…" : shortName) : "Local";
       }
       btns.forEach((b) => {
         b.title = !u ? "Iniciar sesión con Google y sincronizar progreso"
-          : full + (st === "syncing" ? " (guardando…)" : " · clic para cerrar sesión");
+          : full + (st === "syncing" ? " (guardando…)" : " · Sincronizado con Google (clic para cerrar sesión)");
       });
       const nowOwner = isOwner();
       if (nowOwner !== wasOwner && (currentView === "inicio" || currentView === "cursos")) refreshView();
@@ -444,27 +446,27 @@
         if (Cloud && Cloud.isConfigured() && !Cloud.user() && typeof Cloud.warm === "function") Cloud.warm();
       });
       btn.addEventListener("click", () => {
-      if (!Cloud || !Cloud.isConfigured()) {
-        toast("Sync sin configurar: creá un proyecto gratis en Firebase y pegá las claves en js/cloud.js");
-        return;
-      }
-      if (Cloud.user()) {
-        if (confirm("¿Cerrar sesión en este dispositivo? Tu progreso queda guardado en la nube.")) Cloud.signOut().then(paint);
-        return;
-      }
-      toast("Abriendo Google…");
-      Cloud.signIn().then(() => { paint(); }).catch((e) => {
-        if (e && (e.code === "auth/popup-closed-by-user" || e.code === "auth/cancelled-popup-request")) return;
-        const code = e && e.code ? e.code : "";
-        if (code === "auth/unauthorized-domain") {
-          toast("Dominio sin autorizar: en Firebase → Authentication → Configuración → Dominios autorizados, agregá oriannaf.github.io");
-        } else if (code === "auth/configuration-not-found" || code === "auth/operation-not-allowed") {
-          toast("Google no está habilitado: en Firebase → Authentication → Sign-in method, habilitá el proveedor Google");
-        } else {
-          toast("No se pudo iniciar sesión" + (code ? " (" + code + ")" : "") + ". Revisá tu conexión.");
+        if (!Cloud || !Cloud.isConfigured()) {
+          toast("Sync sin configurar: creá un proyecto gratis en Firebase y pegá las claves en js/cloud.js");
+          return;
         }
-        if (e) console.error("Cloud sign-in error:", e);
-      });
+        if (Cloud.user()) {
+          if (confirm("¿Cerrar sesión en este dispositivo? Tu progreso queda guardado en la nube.")) Cloud.signOut().then(paint);
+          return;
+        }
+        toast("Abriendo Google…");
+        Cloud.signIn().then(() => { paint(); }).catch((e) => {
+          if (e && (e.code === "auth/popup-closed-by-user" || e.code === "auth/cancelled-popup-request")) return;
+          const code = e && e.code ? e.code : "";
+          if (code === "auth/unauthorized-domain") {
+            toast("Dominio sin autorizar: en Firebase → Authentication → Configuración → Dominios autorizados, agregá oriannaf.github.io");
+          } else if (code === "auth/configuration-not-found" || code === "auth/operation-not-allowed") {
+            toast("Google no está habilitado: en Firebase → Authentication → Sign-in method, habilitá el proveedor Google");
+          } else {
+            toast("No se pudo iniciar sesión" + (code ? " (" + code + ")" : "") + ". Revisá tu conexión.");
+          }
+          if (e) console.error("Cloud sign-in error:", e);
+        });
       });
     });
     if (Cloud) Cloud.onChange(paint);
@@ -487,7 +489,7 @@
     window.Cloud.onChange(scheduleViewRefresh);
   }
 
-  const NAV_SEL = "#main-nav .nav-item, #bottom-nav .nav-item";
+  const NAV_SEL = "#main-nav .nav-item";
 
   function bindNav() {
     document.querySelectorAll(NAV_SEL).forEach((a) => {
