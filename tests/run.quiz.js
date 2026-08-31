@@ -156,6 +156,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       scene.click();
       await sleep(50);
       log("flashcard flip", $(".fc-card.flipped") ? "OK" : "FAIL");
+      const expToggle = $(".fc-explain-toggle");
+      if (expToggle) {
+        expToggle.click();
+        await sleep(50);
+        const isOpen = $(".fc-explain-wrap.open");
+        const cardFlipped = $(".fc-card.flipped");
+        log("flashcard explain expand without flip", isOpen && cardFlipped ? "OK" : "FAIL");
+      }
       const easyBtn = $("#fc-easy");
       if (easyBtn) {
         easyBtn.click();

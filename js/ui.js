@@ -374,7 +374,7 @@
 
   function loadSource() {
     const loadOne = (url, name) =>
-      fetch(`${url}?v=57`)
+      fetch(`${url}?v=58`)
         .then((r) => (r.ok ? r.text() : Promise.reject(new Error("no file"))))
         .then((txt) => {
           if (!txt.trim()) return { ok: false, skipped: true };
@@ -3185,7 +3185,16 @@
 
     const typeLabel = q.type === "dropdown" ? "Relacionar" : q.type === "fill" ? "Completar" : "Opción múltiple";
     const answerHTML = formatFlashAnswer(q);
-    const explainHTML = q.explanation ? `<div class="explain" style="margin-top:12px;"><b>Explicación:</b> ${rich(q.explanation)}</div>` : "";
+    const hasLongExp = q.explanation && q.explanation.length >= 100;
+    const explainHTML = q.explanation ? `
+      <div class="fc-explain-wrap ${hasLongExp ? "" : "open"}">
+        <div class="explain"><b>Explicación:</b> ${rich(q.explanation)}</div>
+        ${hasLongExp ? `
+        <button class="fc-explain-toggle" type="button">
+          <span class="material-symbols-outlined">expand_more</span>
+          <span class="et-lab">Ver más</span>
+        </button>` : ""}
+      </div>` : "";
 
     view(`
       <div class="fc-wrap">
@@ -3278,6 +3287,17 @@
   function bindFlashEvents() {
     const scene = document.getElementById("fc-scene");
     if (scene) scene.addEventListener("click", flipFlashcard);
+
+    document.querySelectorAll(".fc-explain-toggle").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const wrap = btn.closest(".fc-explain-wrap");
+        if (!wrap) return;
+        const open = wrap.classList.toggle("open");
+        const lab = btn.querySelector(".et-lab");
+        if (lab) lab.textContent = open ? "Ver menos" : "Ver más";
+      });
+    });
 
     const exitBtn = document.getElementById("btn-fc-exit");
     if (exitBtn) {
