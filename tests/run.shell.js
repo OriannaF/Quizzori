@@ -56,6 +56,16 @@ const click = (sel) => {
   log("nav round-trip", $("#app").textContent.includes("Horario de Hoy") ? "OK" : "FAIL");
   log("nav active state", $('#main-nav [data-view="inicio"]').classList.contains("active") ? "OK" : "FAIL");
   log("topbar stable", $("#pomo-time").textContent === "25:00" && $("#top-date") ? "OK" : "FAIL");
+  log("offline badge", $("#offline-badge") && $("#offline-badge").hidden ? "OK (hidden default)" : "FAIL");
+
+  // Offline / Account modal test
+  click("#acct-btn");
+  await sleep(50);
+  const acctModalOpen = !!$("#acct-overlay .modal") && $("#acct-overlay").textContent.includes("Modo sin conexión");
+  click("#acct-m-done");
+  await sleep(50);
+  const acctModalClosed = !$("#acct-overlay");
+  log("offline modal roundtrip", acctModalOpen && acctModalClosed ? "OK" : "FAIL");
 
   // Pomodoro reset test
   click("#pomo-play");

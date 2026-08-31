@@ -1,24 +1,45 @@
-﻿const CACHE_NAME = 'studori-v54';
+const CACHE_NAME = 'studori-v61';
 const PRECACHE_URLS = [
   './',
   'index.html',
-  'css/style.css?v=54',
-  'js/storage.js?v=54',
-  'js/csv.js?v=54',
-  'js/scheduler.js?v=54',
-  'js/quiz.js?v=54',
-  'js/game.js?v=54',
-  'js/crossword.js?v=54',
-  'js/cloud.js?v=54',
-  'js/ui.js?v=54',
-  'data/cuestionario.csv?v=54',
-  'data/cuestionario%20Burpleria.csv?v=54',
-  'data/cuestionario%20Primer%20Parcial%202026.csv?v=54'
+  'manifest.json',
+  'css/style.css',
+  'css/style.css?v=61',
+  'js/storage.js',
+  'js/storage.js?v=61',
+  'js/csv.js',
+  'js/csv.js?v=61',
+  'js/scheduler.js',
+  'js/scheduler.js?v=61',
+  'js/quiz.js',
+  'js/quiz.js?v=61',
+  'js/game.js',
+  'js/game.js?v=61',
+  'js/crossword.js',
+  'js/crossword.js?v=61',
+  'js/cloud.js',
+  'js/cloud.js?v=61',
+  'js/ui.js',
+  'js/ui.js?v=61',
+  'data/cuestionario.csv',
+  'data/cuestionario.csv?v=61',
+  'data/cuestionario%20Burpleria.csv',
+  'data/cuestionario%20Burpleria.csv?v=61',
+  'data/cuestionario%20Primer%20Parcial%202026.csv',
+  'data/cuestionario%20Primer%20Parcial%202026.csv?v=61'
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS)).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then((cache) => {
+      return Promise.all(
+        PRECACHE_URLS.map((url) =>
+          cache.add(url).catch((err) => {
+            console.warn('[SW] Precache skipped for:', url, err);
+          })
+        )
+      );
+    }).then(() => self.skipWaiting())
   );
 });
 
@@ -31,24 +52,87 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  const url = event.request.url;
-  // Ignore Firebase, Google Auth, or non-GET requests
-  if (event.request.method !== 'GET' || url.includes('googleapis.com') || url.includes('firebaseapp.com')) {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+
+  const url = req.url;
+
+  // Ignore Firebase Auth / Google Cloud APIs / Firestore
+  if (
+    url.includes('identitytoolkit') ||
+    url.includes('securetoken') ||
+    url.includes('tasks.googleapis.com') ||
+    url.includes('firestore.googleapis.com') ||
+    url.includes('firebaseapp.com/__/auth')
+  ) {
     return;
   }
 
-  // Stale-While-Revalidate for app assets and CSVs
+  // Google Fonts & Material Symbols (Cache first with runtime caching)
+  if (url.includes('fonts.googleapis.com') || url.includes('fonts.gstatic.com')) {
+    event.respondWith(
+      caches.match(req).then((cached) => {
+        if (cached) return cached;
+        return fetch(req).then((networkResponse) => {
+          if (networkResponse && (networkResponse.status === 200 || networkResponse.type === 'opaque')) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+          }
+          return networkResponse;
+        }).catch(() => cached);
+      })
+    );
+    return;
+  }
+
+  // Navigation requests (HTML page load)
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+          }
+          return networkResponse;
+        })
+        .catch(() =>
+          caches.match(req, { ignoreSearch: true }).then((cached) =>
+            cached || caches.match('index.html') || caches.match('./')
+          )
+        )
+    );
+    return;
+  }
+
+  // App static assets & CSV data (Stale-While-Revalidate + Cache fallback with ignoreSearch)
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      const fetchPromise = fetch(event.request).then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
-        }
-        return networkResponse;
-      }).catch(() => cachedResponse);
+    caches.match(req, { ignoreSearch: true }).then((cachedResponse) => {
+      const fetchPromise = fetch(req)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200 && (networkResponse.type === 'basic' || networkResponse.type === 'cors')) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, responseToCache));
+          }
+          return networkResponse;
+        })
+        .catch(() => cachedResponse);
 
       return cachedResponse || fetchPromise;
     })
   );
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'CACHE_OFFLINE_ALL') {
+    caches.open(CACHE_NAME).then((cache) => {
+      return Promise.all(
+        PRECACHE_URLS.map((u) => cache.add(u).catch(() => {}))
+      );
+    }).then(() => {
+      if (event.source && event.source.postMessage) {
+        event.source.postMessage({ type: 'CACHE_OFFLINE_DONE', ok: true });
+      }
+    });
+  }
 });

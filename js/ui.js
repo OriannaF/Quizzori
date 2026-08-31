@@ -372,9 +372,214 @@
     el._t = setTimeout(() => el.classList.remove("show"), 3200);
   }
 
+  function updateOnlineStatus(notify) {
+    const isOnline = typeof navigator !== "undefined" ? navigator.onLine !== false : true;
+    const badge = document.getElementById("offline-badge");
+    if (badge) {
+      badge.hidden = isOnline;
+    }
+    const acctChip = document.getElementById("acct-btn");
+    if (acctChip) {
+      acctChip.classList.toggle("is-offline", !isOnline);
+    }
+    if (notify) {
+      if (!isOnline) {
+        toast("📡 Modo offline: podés seguir practicando sin internet, todo se guarda localmente.");
+      } else {
+        toast("🟢 Conexión restablecida.");
+        if (window.Cloud && window.Cloud.user() && typeof window.Cloud.flush === "function") {
+          window.Cloud.flush();
+        }
+      }
+    }
+  }
+
+  function closeAccountModal() {
+    const ov = document.getElementById("acct-overlay");
+    if (!ov) return;
+    if (ov._onKey) document.removeEventListener("keydown", ov._onKey);
+    ov.remove();
+  }
+
+  function openAccountModal(paint) {
+    closeAccountModal();
+    const Cloud = window.Cloud;
+    const u = Cloud && Cloud.user();
+    const isOnline = typeof navigator !== "undefined" ? navigator.onLine !== false : true;
+    const totalQz = (window.Quiz && window.Quiz.S && window.Quiz.S.questionnaires) ? window.Quiz.S.questionnaires.length : 0;
+    const totalPreg = (window.Quiz && window.Quiz.S && window.Quiz.S.questionnaires)
+      ? window.Quiz.S.questionnaires.reduce((acc, q) => acc + (q.questions ? q.questions.length : 0), 0) : 0;
+
+    const ov = document.createElement("div");
+    ov.id = "acct-overlay";
+    ov.className = "modal-overlay";
+    ov.addEventListener("click", (e) => { if (e.target === ov) closeAccountModal(); });
+    ov._onKey = (e) => { if (e.key === "Escape") closeAccountModal(); };
+    document.addEventListener("keydown", ov._onKey);
+
+    ov.innerHTML = `
+    <div class="modal" role="dialog" aria-modal="true" style="max-width: 480px;">
+      <div class="modal-head">
+        <span class="material-symbols-outlined accent-ic">${u ? "account_circle" : "cloud"}</span>
+        <h3>Cuenta & Modo Offline</h3>
+        <button class="mini-edit" id="acct-m-close" title="Cerrar"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="modal-body" style="display:flex; flex-direction:column; gap:16px;">
+        
+        <div class="card" style="padding:14px; background:var(--panel-2); border:1px solid var(--border); border-radius:12px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+            <span style="font-weight:700; font-size:14px; display:inline-flex; align-items:center; gap:6px;">
+              <span class="material-symbols-outlined" style="font-size:18px; color:${isOnline ? 'var(--green)' : '#fbbf24'};">
+                ${isOnline ? 'wifi' : 'wifi_off'}
+              </span>
+              Modo sin conexión (Offline)
+            </span>
+            <span class="badge" style="font-size:11.5px; font-weight:700; padding:3px 8px; border-radius:999px; background:${isOnline ? 'rgba(5,231,119,0.12)' : 'rgba(245,158,11,0.15)'}; color:${isOnline ? 'var(--green)' : '#fbbf24'}; border:1px solid ${isOnline ? 'rgba(5,231,119,0.3)' : 'rgba(245,158,11,0.35)'};">
+              ${isOnline ? 'Online (Conectado)' : 'Offline (Sin Wi-Fi)'}
+            </span>
+          </div>
+          <p class="muted small" style="margin:0 0 10px 0; line-height:1.45;">
+            Studori funciona <b>100% sin internet</b>. Podés responder cuestionarios, usar flashcards y hacer exámenes sin necesidad de estar conectado. Tu avance se guarda en este dispositivo.
+          </p>
+          <div style="display:flex; align-items:center; justify-content:space-between; font-size:12.5px; margin-bottom:12px; padding:8px 10px; background:var(--panel); border-radius:8px;">
+            <span class="muted">Cuestionarios disponibles:</span>
+            <span style="font-weight:700;">${totalQz} cuestionarios (${totalPreg} preguntas)</span>
+          </div>
+          <button class="btn sm secondary" id="btn-force-offline" style="width:100%; display:inline-flex; align-items:center; justify-content:center; gap:6px;">
+            <span class="material-symbols-outlined" style="font-size:18px;">download_for_offline</span>
+            <span>Guardar / Verificar datos offline</span>
+          </button>
+          <div id="offline-sync-msg" class="small muted" style="margin-top:6px; text-align:center; display:none;"></div>
+        </div>
+
+        <div class="card" style="padding:14px; background:var(--panel-2); border:1px solid var(--border); border-radius:12px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+            <span style="font-weight:700; font-size:14px; display:inline-flex; align-items:center; gap:6px;">
+              <span class="material-symbols-outlined" style="font-size:18px; color:var(--accent-soft);">sync</span>
+              Sincronización en la nube
+            </span>
+            ${u ? `<span class="badge" style="font-size:11.5px; font-weight:700; padding:3px 8px; border-radius:999px; background:rgba(5,231,119,0.12); color:var(--green); border:1px solid rgba(5,231,119,0.3);">Conectado</span>` : `<span class="badge" style="font-size:11.5px; padding:3px 8px; border-radius:999px; background:var(--panel); color:var(--muted);">Local</span>`}
+          </div>
+          ${u ? `
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+              <span class="material-symbols-outlined" style="font-size:32px; color:var(--accent);">account_circle</span>
+              <div style="overflow:hidden;">
+                <div style="font-weight:700; font-size:13.5px; overflow:hidden; text-overflow:ellipsis;">${esc(u.name || "Usuario")}</div>
+                <div class="muted small" style="overflow:hidden; text-overflow:ellipsis;">${esc(u.email || "")}</div>
+              </div>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+              <button class="btn sm primary" id="btn-cloud-sync-now" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:6px;">
+                <span class="material-symbols-outlined" style="font-size:16px;">cloud_sync</span> Sincronizar ahora
+              </button>
+              <button class="btn sm ghost" id="btn-cloud-signout" style="display:inline-flex; align-items:center; justify-content:center; gap:4px;">
+                <span class="material-symbols-outlined" style="font-size:16px;">logout</span> Salir
+              </button>
+            </div>
+          ` : `
+            <p class="muted small" style="margin:0 0 10px 0; line-height:1.45;">
+              Iniciá sesión con Google para sincronizar tu progreso entre tu PC, celular y tablet cuando tengas internet.
+            </p>
+            <button class="btn sm primary" id="btn-cloud-signin" style="width:100%; display:inline-flex; align-items:center; justify-content:center; gap:6px;">
+              <span class="material-symbols-outlined" style="font-size:18px;">login</span> Iniciar sesión con Google
+            </button>
+          `}
+        </div>
+
+        <div style="padding:10px 12px; background:rgba(187,195,255,0.05); border:1px dashed rgba(187,195,255,0.25); border-radius:10px; font-size:12px; color:var(--muted); line-height:1.45;">
+          💡 <b>Instalar como App:</b> Podés instalar Studori en tu celular o PC desde el menú del navegador (<b>"Instalar aplicación"</b> o <b>"Agregar a la pantalla principal"</b>) para usarla directo sin Wi-Fi.
+        </div>
+
+      </div>
+      <div class="modal-foot">
+        <button class="btn ghost" id="acct-m-done">Cerrar</button>
+      </div>
+    </div>`;
+
+    document.body.appendChild(ov);
+    ov.querySelector("#acct-m-close").onclick = closeAccountModal;
+    ov.querySelector("#acct-m-done").onclick = closeAccountModal;
+
+    const btnForce = ov.querySelector("#btn-force-offline");
+    if (btnForce) {
+      btnForce.onclick = () => {
+        btnForce.disabled = true;
+        btnForce.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px; animation:spin 1s linear infinite;">sync</span> Guardando cuestionarios…`;
+        const urls = [
+          "data/cuestionario.csv?v=61",
+          "data/cuestionario%20Burpleria.csv?v=61",
+          "data/cuestionario%20Primer%20Parcial%202026.csv?v=61"
+        ];
+        Promise.all(
+          urls.map((u) => fetch(u).catch(() => null))
+        ).then(() => {
+          if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({ type: "CACHE_OFFLINE_ALL" });
+          }
+          setTimeout(() => {
+            btnForce.disabled = false;
+            btnForce.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px; color:var(--green);">check_circle</span> ¡Todo guardado para uso offline!`;
+            const msgEl = ov.querySelector("#offline-sync-msg");
+            if (msgEl) {
+              msgEl.style.display = "block";
+              msgEl.style.color = "var(--green)";
+              msgEl.textContent = "Todos los cuestionarios y recursos están guardados en tu dispositivo.";
+            }
+            toast("✅ Cuestionarios y datos listos para usar sin conexión.");
+          }, 400);
+        });
+      };
+    }
+
+    const btnSyncNow = ov.querySelector("#btn-cloud-sync-now");
+    if (btnSyncNow) {
+      btnSyncNow.onclick = () => {
+        btnSyncNow.disabled = true;
+        btnSyncNow.textContent = "Sincronizando…";
+        if (Cloud && typeof Cloud.flush === "function") {
+          Cloud.flush().then(() => {
+            btnSyncNow.textContent = "¡Sincronizado!";
+            toast("✅ Progreso sincronizado con Google.");
+            setTimeout(() => {
+              btnSyncNow.disabled = false;
+              btnSyncNow.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px;">cloud_sync</span> Sincronizar ahora`;
+            }, 1200);
+          }).catch(() => {
+            btnSyncNow.disabled = false;
+            btnSyncNow.textContent = "Error al sincronizar";
+          });
+        }
+      };
+    }
+
+    const btnSignout = ov.querySelector("#btn-cloud-signout");
+    if (btnSignout) {
+      btnSignout.onclick = () => {
+        if (confirm("¿Cerrar sesión en este dispositivo? Tu progreso queda guardado en la nube.")) {
+          closeAccountModal();
+          if (Cloud) Cloud.signOut().then(() => { if (typeof paint === "function") paint(); });
+        }
+      };
+    }
+
+    const btnSignin = ov.querySelector("#btn-cloud-signin");
+    if (btnSignin) {
+      btnSignin.onclick = () => {
+        closeAccountModal();
+        toast("Abriendo Google…");
+        if (Cloud) {
+          Cloud.signIn().then(() => { if (typeof paint === "function") paint(); }).catch((e) => {
+            if (e && (e.code === "auth/popup-closed-by-user" || e.code === "auth/cancelled-popup-request")) return;
+            toast("No se pudo iniciar sesión. Revisá tu conexión.");
+          });
+        }
+      };
+    }
+  }
+
   function loadSource() {
     const loadOne = (url, name) =>
-      fetch(`${url}?v=60`)
+      fetch(`${url}?v=61`)
         .then((r) => (r.ok ? r.text() : Promise.reject(new Error("no file"))))
         .then((txt) => {
           if (!txt.trim()) return { ok: false, skipped: true };
@@ -403,6 +608,7 @@
     const Cloud = window.Cloud;
     const sideBtn = document.getElementById("cloud-btn");
     const topBtn = document.getElementById("acct-btn") || document.getElementById("user-chip");
+    const offlineBadge = document.getElementById("offline-badge");
     const btns = [sideBtn, topBtn].filter(Boolean);
     const ic = document.getElementById("cloud-ic");
     const label = document.getElementById("cloud-label");
@@ -434,8 +640,8 @@
         aname.textContent = u ? (st === "syncing" ? "Guardando…" : shortName) : "Local";
       }
       btns.forEach((b) => {
-        b.title = !u ? "Iniciar sesión con Google y sincronizar progreso"
-          : full + (st === "syncing" ? " (guardando…)" : " · Sincronizado con Google (clic para cerrar sesión)");
+        b.title = !u ? "Cuenta y modo offline"
+          : full + (st === "syncing" ? " (guardando…)" : " · Cuenta sincronizada");
       });
       const nowOwner = isOwner();
       if (nowOwner !== wasOwner && (currentView === "inicio" || currentView === "cursos")) refreshView();
@@ -446,29 +652,14 @@
         if (Cloud && Cloud.isConfigured() && !Cloud.user() && typeof Cloud.warm === "function") Cloud.warm();
       });
       btn.addEventListener("click", () => {
-        if (!Cloud || !Cloud.isConfigured()) {
-          toast("Sync sin configurar: creá un proyecto gratis en Firebase y pegá las claves en js/cloud.js");
-          return;
-        }
-        if (Cloud.user()) {
-          if (confirm("¿Cerrar sesión en este dispositivo? Tu progreso queda guardado en la nube.")) Cloud.signOut().then(paint);
-          return;
-        }
-        toast("Abriendo Google…");
-        Cloud.signIn().then(() => { paint(); }).catch((e) => {
-          if (e && (e.code === "auth/popup-closed-by-user" || e.code === "auth/cancelled-popup-request")) return;
-          const code = e && e.code ? e.code : "";
-          if (code === "auth/unauthorized-domain") {
-            toast("Dominio sin autorizar: en Firebase → Authentication → Configuración → Dominios autorizados, agregá oriannaf.github.io");
-          } else if (code === "auth/configuration-not-found" || code === "auth/operation-not-allowed") {
-            toast("Google no está habilitado: en Firebase → Authentication → Sign-in method, habilitá el proveedor Google");
-          } else {
-            toast("No se pudo iniciar sesión" + (code ? " (" + code + ")" : "") + ". Revisá tu conexión.");
-          }
-          if (e) console.error("Cloud sign-in error:", e);
-        });
+        openAccountModal(paint);
       });
     });
+    if (offlineBadge) {
+      offlineBadge.addEventListener("click", () => {
+        openAccountModal(paint);
+      });
+    }
     if (Cloud) Cloud.onChange(paint);
     paint();
   }
@@ -540,6 +731,11 @@
       el.classList.toggle("light", !dark);
       try { localStorage.setItem("quiz.theme", dark ? "dark" : "light"); } catch (e) {}
     });
+    if (typeof window !== "undefined") {
+      window.addEventListener("online", () => updateOnlineStatus(true));
+      window.addEventListener("offline", () => updateOnlineStatus(true));
+      updateOnlineStatus(false);
+    }
     paintTopDate();
     bindNav();
     initPomodoro();

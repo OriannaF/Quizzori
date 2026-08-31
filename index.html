@@ -25,10 +25,10 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@700;800&family=Manrope:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,500,1,0&display=swap">
   </noscript>
-  <link rel="preload" as="fetch" href="data/cuestionario.csv?v=60" crossorigin>
-  <link rel="preload" as="fetch" href="data/cuestionario%20Burpleria.csv?v=60" crossorigin>
-  <link rel="preload" as="fetch" href="data/cuestionario%20Primer%20Parcial%202026.csv?v=60" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=60">
+  <link rel="preload" as="fetch" href="data/cuestionario.csv?v=61" crossorigin>
+  <link rel="preload" as="fetch" href="data/cuestionario%20Burpleria.csv?v=61" crossorigin>
+  <link rel="preload" as="fetch" href="data/cuestionario%20Primer%20Parcial%202026.csv?v=61" crossorigin>
+  <link rel="stylesheet" href="css/style.css?v=61">
 </head>
 <body>
   <div class="bg-glow" aria-hidden="true">
@@ -57,6 +57,10 @@
         </nav>
       </div>
       <div class="topbar-actions">
+        <div class="offline-badge" id="offline-badge" hidden title="Modo sin conexión: todo tu progreso se guarda en tu dispositivo">
+          <span class="material-symbols-outlined">wifi_off</span>
+          <span class="offline-badge-text">Offline</span>
+        </div>
         <span class="top-date mono-label" id="top-date"></span>
         <div class="pomo" id="pomo">
           <button class="pomo-btn" id="pomo-cfg" type="button" title="Configurar pomodoro">
@@ -77,7 +81,7 @@
             <label>Pausa larga (min)<input type="number" id="pomo-long" min="1" max="60" value="15"></label>
           </div>
         </div>
-        <button class="acct-chip" id="acct-btn" type="button" title="Iniciar sesión con Google y sincronizar progreso">
+        <button class="acct-chip" id="acct-btn" type="button" title="Cuenta y modo offline">
           <span class="material-symbols-outlined" id="acct-ic">cloud</span>
           <span class="acct-name" id="acct-name">Local</span>
         </button>
@@ -89,19 +93,21 @@
     <div class="card p-xl tc text-muted">Cargando cuestionarios…</div>
   </main>
 
-  <script src="js/storage.js?v=60"></script>
-  <script src="js/csv.js?v=60"></script>
-  <script src="js/scheduler.js?v=60"></script>
-  <script src="js/quiz.js?v=60"></script>
-  <script src="js/game.js?v=60"></script>
-  <script src="js/crossword.js?v=60"></script>
-  <script src="js/cloud.js?v=60"></script>
-  <script src="js/ui.js?v=60"></script>
+  <script src="js/storage.js?v=61"></script>
+  <script src="js/csv.js?v=61"></script>
+  <script src="js/scheduler.js?v=61"></script>
+  <script src="js/quiz.js?v=61"></script>
+  <script src="js/game.js?v=61"></script>
+  <script src="js/crossword.js?v=61"></script>
+  <script src="js/cloud.js?v=61"></script>
+  <script src="js/ui.js?v=61"></script>
   <script>
     document.addEventListener("DOMContentLoaded", function () {
       window.UI.init();
       if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
-        navigator.serviceWorker.register("sw.js").catch(function () {});
+        navigator.serviceWorker.register("sw.js").then(function (reg) {
+          if (reg) reg.update();
+        }).catch(function () {});
       }
     });
   </script>
