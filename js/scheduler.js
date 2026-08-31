@@ -95,6 +95,18 @@ const Scheduler = (() => {
     if (q.type === "dropdown" && Array.isArray(q.dropdown) && q.dropdown.length > 1) {
       it.dropOrder = shuffle(q.dropdown.map((_, i) => i));
     }
+    if (q.type === "order" && Array.isArray(q.options) && q.options.length > 1) {
+      let initOrd = shuffle(q.options.map((_, i) => i));
+      if (Array.isArray(q.correct) && JSON.stringify(initOrd) === JSON.stringify(q.correct)) {
+        initOrd = shuffle(initOrd);
+        if (JSON.stringify(initOrd) === JSON.stringify(q.correct) && initOrd.length >= 2) {
+          const t0 = initOrd[0];
+          initOrd[0] = initOrd[1];
+          initOrd[1] = t0;
+        }
+      }
+      it.initialOrder = initOrd;
+    }
     return it;
   }
 

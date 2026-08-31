@@ -374,7 +374,7 @@
 
   function loadSource() {
     const loadOne = (url, name) =>
-      fetch(`${url}?v=59`)
+      fetch(`${url}?v=60`)
         .then((r) => (r.ok ? r.text() : Promise.reject(new Error("no file"))))
         .then((txt) => {
           if (!txt.trim()) return { ok: false, skipped: true };
@@ -2683,7 +2683,34 @@
           return `<div class="qtext">${rich(q.text)}</div>
             <input class="input fill-input" data-q="${q.id}" placeholder="Escribí la respuesta…" value="${esc(val)}" autocomplete="off">`;
         })()
-        : (() => {
+        : q.type === "order"
+          ? (() => {
+            const curOrder = (Array.isArray(S().answers[q.id]) && S().answers[q.id].length === q.options.length)
+              ? S().answers[q.id]
+              : (Array.isArray(it.initialOrder) && it.initialOrder.length === q.options.length
+                ? it.initialOrder
+                : (it.initialOrder = window.Scheduler ? window.Scheduler.shuffle(q.options.map((_, j) => j)) : q.options.map((_, j) => j)));
+            const len = curOrder.length;
+            const itemsHTML = curOrder.map((origIdx, pos) => `
+              <div class="order-item" data-q="${q.id}" data-pos="${pos}" data-orig="${origIdx}" draggable="true">
+                <span class="order-num">${pos + 1}</span>
+                <div class="order-content">${rich(q.options[origIdx])}</div>
+                <div class="order-actions">
+                  <button class="order-btn btn-up" data-q="${q.id}" data-pos="${pos}" type="button" title="Mover arriba" ${pos === 0 ? "disabled" : ""}>
+                    <span class="material-symbols-outlined">arrow_upward</span>
+                  </button>
+                  <button class="order-btn btn-down" data-q="${q.id}" data-pos="${pos}" type="button" title="Mover abajo" ${pos === len - 1 ? "disabled" : ""}>
+                    <span class="material-symbols-outlined">arrow_downward</span>
+                  </button>
+                  <span class="order-handle material-symbols-outlined" title="Arrastrar para ordenar">drag_indicator</span>
+                </div>
+              </div>
+            `).join("");
+            return `<div class="qtext">${rich(q.text)}</div>
+              <div class="muted small" style="margin-bottom:8px;">Arrastrá o usá las flechas para ordenar los elementos de arriba a abajo (1 = primero):</div>
+              <div class="order-list" id="order-list-${q.id}" data-q="${q.id}">${itemsHTML}</div>`;
+          })()
+          : (() => {
         const checked = S().answers[q.id] || [];
         const opts = it.optOrder.map((orig, disp) => {
           const on = checked.indexOf(disp) >= 0;
@@ -2699,7 +2726,7 @@
       <div class="qhead">
         <span class="qnum">${isExam ? `Pregunta ${i + 1}` : i + 1}<span class="muted">${isExam ? ` de ${n}` : `/${n}`}</span></span>
         ${q.category ? `<span class="chip">${esc(q.category)}</span>` : ""}
-        ${q.type === "dropdown" ? `<span class="chip">dropdown</span>` : q.type === "fill" ? `<span class="chip">rellenar</span>` : ""}
+        ${q.type === "dropdown" ? `<span class="chip">dropdown</span>` : q.type === "fill" ? `<span class="chip">rellenar</span>` : q.type === "order" ? `<span class="chip">ordenar</span>` : ""}
         <span class="chip warn" ${answeredNow ? "style='display:none'" : ""}>sin responder</span>
       </div>
       ${body}
@@ -2919,6 +2946,58 @@
       });
     });
 
+    document.querySelectorAll(".order-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const qid = parseInt(btn.dataset.q, 10);
+        const pos = parseInt(btn.dataset.pos, 10);
+        const targetPos = btn.classList.contains("btn-up") ? pos - 1 : pos + 1;
+        const newOrder = Quiz.moveOrderItem(qid, pos, targetPos);
+        if (newOrder) {
+          const card = document.getElementById("qcard-" + qid);
+          setAnsweredState(card, qid);
+          renderQuiz();
+        }
+      });
+    });
+
+    document.querySelectorAll(".order-list").forEach((list) => {
+      const qid = parseInt(list.dataset.q, 10);
+      let draggedItem = null;
+      list.querySelectorAll(".order-item").forEach((item) => {
+        item.addEventListener("dragstart", (e) => {
+          draggedItem = item;
+          item.classList.add("dragging");
+          if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", item.dataset.pos);
+          }
+        });
+        item.addEventListener("dragend", () => {
+          item.classList.remove("dragging");
+          list.querySelectorAll(".order-item").forEach((el) => el.classList.remove("drag-over"));
+        });
+        item.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+          list.querySelectorAll(".order-item").forEach((el) => el.classList.remove("drag-over"));
+          item.classList.add("drag-over");
+        });
+        item.addEventListener("drop", (e) => {
+          e.preventDefault();
+          item.classList.remove("drag-over");
+          if (!draggedItem || draggedItem === item) return;
+          const fromPos = parseInt(draggedItem.dataset.pos, 10);
+          const toPos = parseInt(item.dataset.pos, 10);
+          const newOrder = Quiz.moveOrderItem(qid, fromPos, toPos);
+          if (newOrder) {
+            const card = document.getElementById("qcard-" + qid);
+            setAnsweredState(card, qid);
+            renderQuiz();
+          }
+        });
+      });
+    });
+
     document.querySelectorAll(".opt input[type=checkbox]").forEach((input) => {
       input.addEventListener("change", (e) => {
         const qid = parseInt(e.target.dataset.q, 10);
@@ -3059,6 +3138,23 @@
               <span class="opt-flag">${flag}</span>
             </div>`;
           })()
+          : d.q.type === "order"
+            ? (() => {
+              const uOrder = d.userOrder || [];
+              const cOrder = d.q.correct || [];
+              return `<div class="order-result-grid">${cOrder.map((cIdx, pos) => {
+                const uIdx = uOrder[pos];
+                const isExact = uIdx === cIdx;
+                return `<div class="order-res-row ${isExact ? "correct" : "wrong"}">
+                  <div class="order-res-num">${pos + 1}º</div>
+                  <div class="order-res-body">
+                    <div class="order-res-val"><b>${rich(d.q.options[uIdx != null ? uIdx : cIdx])}</b></div>
+                    ${!isExact ? `<div class="order-res-correct"><span class="muted small">Orden correcto:</span> ${rich(d.q.options[cIdx])}</div>` : ""}
+                  </div>
+                  <span class="opt-flag">${isExact ? "✓" : "✗"}</span>
+                </div>`;
+              }).join("")}</div>`;
+            })()
           : d.optOrder.map((orig, disp) => {
           const isC = d.q.correct.indexOf(orig) >= 0;
           const was = d.dispChecked.indexOf(disp) >= 0;
@@ -3111,17 +3207,17 @@
 
     document.getElementById("btn-repeat").addEventListener("click", () => {
       Quiz.repeatSession();
-      if (S().settings.mode === "timed") startTimer((S().settings.timedMinutes || 30) * 60);
+      if (S().settings.mode === "timed") startTimer((S().settings.timedMinutes || 40) * 60);
       renderQuiz();
     });
     document.getElementById("btn-fail").addEventListener("click", () => {
       Quiz.failedSession();
-      if (S().settings.mode === "timed") startTimer((S().settings.timedMinutes || 30) * 60);
+      if (S().settings.mode === "timed") startTimer((S().settings.timedMinutes || 40) * 60);
       renderQuiz();
     });
     document.getElementById("btn-next").addEventListener("click", () => {
       Quiz.newSession();
-      if (S().settings.mode === "timed") startTimer((S().settings.timedMinutes || 30) * 60);
+      if (S().settings.mode === "timed") startTimer((S().settings.timedMinutes || 40) * 60);
       renderQuiz();
     });
     document.getElementById("btn-home").addEventListener("click", () => navigate(returnView));
@@ -3132,7 +3228,6 @@
     }));
   }
 
-  /* ---- Flashcards System ---- */
   let flashState = null;
 
   function startFlashcards(hash) {
@@ -3170,6 +3265,9 @@
     if (q.type === "fill") {
       return q.correct.map(esc).join(" <i>ó</i> ");
     }
+    if (q.type === "order") {
+      return q.correct.map((idx, pos) => `<b>${pos + 1}.</b> ${esc(q.options[idx])}`).join("<br>");
+    }
     return q.correct.map((idx) => `• ${esc(q.options[idx])}`).join("<br>");
   }
 
@@ -3185,7 +3283,7 @@
     const currentNum = st.idx + 1;
     const pct = Math.round((currentNum / total) * 100);
 
-    const typeLabel = q.type === "dropdown" ? "Relacionar" : q.type === "fill" ? "Completar" : "Opción múltiple";
+    const typeLabel = q.type === "dropdown" ? "Relacionar" : q.type === "fill" ? "Completar" : q.type === "order" ? "Ordenar" : "Opción múltiple";
     const answerHTML = formatFlashAnswer(q);
     const hasLongExp = q.explanation && q.explanation.length >= 100;
     const explainHTML = q.explanation ? `
@@ -3217,6 +3315,7 @@
               <div class="fc-body">
                 <div class="qtext">${rich(q.text)}</div>
                 ${q.type === "dropdown" ? `<div class="muted small">${q.slots.length} conceptos a relacionar</div>` : ""}
+                ${q.type === "order" ? `<div class="muted small">${q.options.length} pasos para ordenar</div>` : ""}
                 ${q.type === "select" ? `<div class="muted small">${q.options.length} opciones disponibles</div>` : ""}
               </div>
               <div class="fc-hint">

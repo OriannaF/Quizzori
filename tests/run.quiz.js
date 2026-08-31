@@ -85,6 +85,31 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     && dq3 && dq3.dropdown.join("|") === "ConceptoA|ConceptoB"
     && !prDrop.warnings.length ? "OK" : "FAIL " + JSON.stringify(prDrop.warnings));
 
+  const csvOrder = [
+    "pregunta,categoria,opcion 1,opcion 2,opcion 3,opcion 4,correctas,explicacion",
+    '"Ordená las fases de la mitosis",Biología,Metafase,Profase,Telofase,Anafase,"Profase, Metafase, Anafase, Telofase",Orden correcto celular',
+    '"Orden de ejecución",Sistemas,Compilar,Diseñar,Probar,,"opcion 2, opcion 1, opcion 3",Flujo habitual',
+    '"Ordená los pasos",General,Paso 1,Paso 2,Paso 3,,"2, 1, 3",Secuencia numérica'
+  ].join("\n");
+  const prOrder = w.CSV.parseQuestions(csvOrder);
+  const oq1 = prOrder.questions[0];
+  const oq2 = prOrder.questions[1];
+  const oq3 = prOrder.questions[2];
+  log("csv order parsed text", oq1 && oq1.type === "order"
+    && oq1.options.length === 4
+    && oq1.correct.join() === "1,0,3,2" ? "OK" : "FAIL " + JSON.stringify(oq1));
+  log("csv order parsed opcion string", oq2 && oq2.type === "order"
+    && oq2.options.length === 3
+    && oq2.correct.join() === "1,0,2" ? "OK" : "FAIL " + JSON.stringify(oq2));
+  log("csv order parsed numeric", oq3 && oq3.type === "order"
+    && oq3.options.length === 3
+    && oq3.correct.join() === "1,0,2" ? "OK" : "FAIL " + JSON.stringify(oq3));
+
+  const orderScoreFull = w.Quiz.scoreOrder(oq1, [1, 0, 3, 2]);
+  const orderScorePartial = w.Quiz.scoreOrder(oq1, [1, 0, 2, 3]);
+  const orderScoreZero = w.Quiz.scoreOrder(oq1, [0, 1, 2, 3]);
+  log("order scoring", orderScoreFull === 1 && orderScorePartial === 0.5 && orderScoreZero === 0 ? "OK" : "FAIL");
+
   const Sch = w.Scheduler;
   const qsF = [
     { id: 0, text: "A", options: ["x", "y"], correct: [0], category: "C1" },
@@ -117,6 +142,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   for (const f of w.document.querySelectorAll(".fill-input")) {
     f.value = "x";
     f.dispatchEvent(new w.Event("input", { bubbles: true }));
+  }
+  for (const ob of w.document.querySelectorAll(".order-btn.btn-down")) {
+    ob.click();
   }
   await sleep(100);
   log("all answered", $("#cnt-answered").textContent + "/" + n);

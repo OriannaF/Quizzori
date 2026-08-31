@@ -256,6 +256,64 @@ const CSV = (() => {
       const hasOneOption = rowOptions.length === 1;
       const textFill = !isDropdown && !isFill && rowOptions.length === 0 && !numericC;
 
+      // Check if this is an ordering / sequence question ("order")
+      if (rowOptions.length >= 2 && rawC) {
+        const cTokens = rawC.split(/[;|,]/).map(unquote).map((t) => t.trim()).filter(Boolean);
+        if (cTokens.length === rowOptions.length) {
+          const cTokensNorm = cTokens.map((t) => normText(t));
+          const rowOptsNorm = rowOptions.map((o) => normText(o));
+          const isTextPerm = rowOptsNorm.every((rn) => cTokensNorm.includes(rn)) && new Set(cTokensNorm).size === rowOptions.length;
+          if (isTextPerm) {
+            const correctOrder = cTokensNorm.map((tn) => rowOptsNorm.indexOf(tn));
+            questions.push({
+              id: questions.length,
+              type: "order",
+              text: textQ,
+              options: rowOptions,
+              correct: correctOrder,
+              category: unquote(cati >= 0 ? row[cati] || "" : ""),
+              explanation: unquote(expi >= 0 ? row[expi] || "" : "")
+            });
+            continue;
+          }
+
+          const isOptionNamed = cTokens.every((t) => /^opci[oó]n\s*(\d+)$/i.test(t));
+          if (isOptionNamed) {
+            const optIndices = cTokens.map((t) => parseInt(t.match(/^opci[oó]n\s*(\d+)$/i)[1], 10) - 1);
+            const valid = optIndices.every((idx) => idx >= 0 && idx < rowOptions.length) && new Set(optIndices).size === rowOptions.length;
+            if (valid) {
+              questions.push({
+                id: questions.length,
+                type: "order",
+                text: textQ,
+                options: rowOptions,
+                correct: optIndices,
+                category: unquote(cati >= 0 ? row[cati] || "" : ""),
+                explanation: unquote(expi >= 0 ? row[expi] || "" : "")
+              });
+              continue;
+            }
+          }
+
+          const numericTokens = cTokens.map((t) => parseInt(t, 10));
+          const isNumericPerm = numericTokens.every((n) => Number.isFinite(n) && n >= 1 && n <= rowOptions.length) &&
+            new Set(numericTokens).size === rowOptions.length;
+          const isOrderIntent = /orden|secuencia|pasos|cronol[oó]gic|etapas|fases|proceso|prioridad|jerarqu[ií]a/i.test(textQ);
+          if (isNumericPerm && isOrderIntent) {
+            questions.push({
+              id: questions.length,
+              type: "order",
+              text: textQ,
+              options: rowOptions,
+              correct: numericTokens.map((n) => n - 1),
+              category: unquote(cati >= 0 ? row[cati] || "" : ""),
+              explanation: unquote(expi >= 0 ? row[expi] || "" : "")
+            });
+            continue;
+          }
+        }
+      }
+
       if (isFill || textFill || (hasOneOption && !isDropdown)) {
         let correctVal = "";
         if (hasOneOption && !isDropdown) {

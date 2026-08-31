@@ -48,6 +48,18 @@ const Quiz = (() => {
     return Math.round(s * 100000) / 100000;
   }
 
+  function scoreOrder(q, userOrder) {
+    if (!Array.isArray(userOrder) || !Array.isArray(q.correct) || userOrder.length !== q.correct.length) return 0;
+    const n = q.correct.length;
+    if (!n) return 0;
+    const unit = 1 / n;
+    let s = 0;
+    for (let i = 0; i < n; i++) {
+      if (userOrder[i] === q.correct[i]) s += unit;
+    }
+    return Math.round(s * 100000) / 100000;
+  }
+
   function loadSettings() {
     const saved = Store.loadSettings();
     const size = parseInt(saved.sessionSize, 10);
@@ -297,6 +309,27 @@ const Quiz = (() => {
     saveDraft();
   }
 
+  function setOrder(qid, orderArray) {
+    if (Array.isArray(orderArray)) {
+      S.answers[qid] = orderArray.slice();
+      saveDraft();
+    }
+  }
+
+  function moveOrderItem(qid, fromPos, toPos) {
+    const it = S.items.find((item) => item.q.id === qid);
+    if (!it || !it.q || it.q.type !== "order") return null;
+    const cur = (Array.isArray(S.answers[qid]) && S.answers[qid].length === it.q.options.length)
+      ? S.answers[qid].slice()
+      : (it.initialOrder ? it.initialOrder.slice() : it.q.options.map((_, i) => i));
+    if (fromPos < 0 || fromPos >= cur.length || toPos < 0 || toPos >= cur.length) return cur;
+    const item = cur.splice(fromPos, 1)[0];
+    cur.splice(toPos, 0, item);
+    S.answers[qid] = cur;
+    saveDraft();
+    return cur;
+  }
+
   const isAnswered = (qid) => {
     const a = S.answers[qid];
     if (!a) return false;
@@ -335,6 +368,19 @@ const Quiz = (() => {
         marked[state].push(q.id);
         return { q, optOrder: [], fillAnswer: answer, score, state };
       }
+      if (q.type === "order") {
+        const userOrder = (Array.isArray(S.answers[q.id]) && S.answers[q.id].length === q.correct.length)
+          ? S.answers[q.id]
+          : (it.initialOrder || q.options.map((_, i) => i));
+        const rawScore = scoreOrder(q, userOrder);
+        const score = Math.round(rawScore * pts * 100000) / 100000;
+        const full = score + 1e-9 >= pts;
+        S.progress[q.id] = Sched.update(card, score, full, qCtx);
+        total += score;
+        const state = full ? "correct" : (score > 1e-9 ? "partial" : "failed");
+        marked[state].push(q.id);
+        return { q, optOrder: [], userOrder, score, state };
+      }
       const dispChecked = (S.answers[q.id] || []).slice().sort((a, b) => a - b);
       const origChecked = dispChecked.map((d) => it.optOrder[d]);
       const score = scoreQuestion(q, origChecked);
@@ -358,7 +404,7 @@ const Quiz = (() => {
   function saveDraft() {
     const hash = S.currentHash || S.hash;
     Store.saveDraft(hash, {
-      items: S.items.map((it) => ({ idx: it.q.id, order: it.optOrder, drop: it.dropOrder })),
+      items: S.items.map((it) => ({ idx: it.q.id, order: it.optOrder, drop: it.dropOrder, initOrder: it.initialOrder })),
       answers: S.answers
     });
   }
@@ -374,7 +420,8 @@ const Quiz = (() => {
       items.push({
         q,
         optOrder: Array.isArray(m.order) && m.order.length === q.options.length ? m.order : q.options.map((_, i) => i),
-        dropOrder: Array.isArray(m.drop) && q.dropdown && m.drop.length === q.dropdown.length ? m.drop : (q.dropdown && q.dropdown.length > 1 ? Sched.shuffle(q.dropdown.map((_, i) => i)) : undefined)
+        dropOrder: Array.isArray(m.drop) && q.dropdown && m.drop.length === q.dropdown.length ? m.drop : (q.dropdown && q.dropdown.length > 1 ? Sched.shuffle(q.dropdown.map((_, i) => i)) : undefined),
+        initialOrder: Array.isArray(m.initOrder) && q.options && m.initOrder.length === q.options.length ? m.initOrder : (q.type === "order" ? Sched.shuffle(q.options.map((_, i) => i)) : undefined)
       });
     }
     S.items = items;
@@ -611,10 +658,10 @@ const Quiz = (() => {
   }
 
   return {
-    S, loadCsv, tryLoadSaved, newSession, repeatSession, failedSession, toggle, setSlot, setFill,
+    S, loadCsv, tryLoadSaved, newSession, repeatSession, failedSession, toggle, setSlot, setFill, setOrder, moveOrderItem,
     isAnswered, answeredCount, submit, tryResume, resetProgress, reloadProgress,
     persistSettings, setSize, setTimedSize, setPoints, setMode, setCat, setTimedMinutes, setExamIndex, setExamDate, setCatExamDate, quizDate, catDate,
-    stats, failedCount, todayCount, newCount, scheduledByDay, questionsOnDay, scoreQuestion,
+    stats, failedCount, todayCount, newCount, scheduledByDay, questionsOnDay, scoreQuestion, scoreOrder,
     selectQuestionnaire, examDateFor, setExamDateFor, statsFor, draftOf, resetProgressFor,
     scheduledByDayFor, questionsOnDayFor,
     materiaCutoffFor, courseExamsMap, courseExamsHoraMap, courseExamFor, setCourseExamFor, setCourseExamHoraFor
