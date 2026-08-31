@@ -11,7 +11,8 @@ const Quiz = (() => {
     questionnaires: [], // array of {hash, name, questions}
     currentHash: "",
     progress: {},
-    settings: { size: 20, points: 1, cat: "" },
+    settings: { size: 20, points: 1, cat: "", mode: "today", timedMinutes: 40, timedSize: 50 },
+    examIndex: 0,
     hash: "",
     name: "",
     items: [],
@@ -56,6 +57,10 @@ const Quiz = (() => {
     const modes = ["today", "random", "new", "failed", "all", "timed"];
     S.settings.mode = modes.includes(saved.mode) ? saved.mode : "today";
     S.settings.cat = typeof saved.cat === "string" ? saved.cat : "";
+    const tm = parseInt(saved.timedMinutes, 10);
+    S.settings.timedMinutes = isNaN(tm) || tm < 1 ? 40 : Math.min(300, tm);
+    const ts = parseInt(saved.timedSize, 10);
+    S.settings.timedSize = isNaN(ts) ? 50 : Math.min(1000, Math.max(1, ts));
   }
 
   const validDate = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(new Date(v + "T00:00:00").getTime()) ? v : "";
@@ -176,7 +181,9 @@ const Quiz = (() => {
       sessionSize: S.settings.size,
       points: S.settings.points,
       mode: S.settings.mode,
-      cat: S.settings.cat
+      cat: S.settings.cat,
+      timedMinutes: S.settings.timedMinutes,
+      timedSize: S.settings.timedSize
     });
   }
 
@@ -186,9 +193,27 @@ const Quiz = (() => {
     persistSettings();
   }
 
+  function setTimedSize(n) {
+    const v = parseInt(n, 10);
+    S.settings.timedSize = v === 0 ? 0 : (isNaN(v) ? 50 : Math.min(1000, Math.max(1, v)));
+    persistSettings();
+  }
+
   function setMode(m) {
     S.settings.mode = ["today", "random", "new", "failed", "all", "timed"].includes(m) ? m : "today";
     persistSettings();
+  }
+
+  function setTimedMinutes(m) {
+    const v = parseInt(m, 10);
+    S.settings.timedMinutes = isNaN(v) || v < 1 ? 40 : Math.min(300, v);
+    persistSettings();
+  }
+
+  function setExamIndex(idx) {
+    const max = Math.max(0, S.items.length - 1);
+    const i = parseInt(idx, 10);
+    S.examIndex = isNaN(i) ? 0 : Math.max(0, Math.min(max, i));
   }
 
   function setCat(v) {
@@ -220,6 +245,7 @@ const Quiz = (() => {
     S.items = fn();
     S.answers = {};
     S.results = null;
+    S.examIndex = 0;
     saveDraft();
   }
 
@@ -231,11 +257,13 @@ const Quiz = (() => {
       const current = S.questionnaires.find(q => q.hash === S.currentHash);
       if (current) questions = current.questions;
     }
-    const want = String(S.settings.cat || "").trim();
+    const isTimed = S.settings.mode === "timed";
+    const want = !isTimed ? String(S.settings.cat || "").trim() : "";
     if (want) {
       questions = questions.filter((q) => (q.category || "").trim() === want);
     }
-    buildFrom(() => Sched.buildByMode(questions, S.progress, S.settings.mode, S.settings.size, undefined, S.settings.points));
+    const sessionSize = isTimed ? (S.settings.timedSize || 50) : S.settings.size;
+    buildFrom(() => Sched.buildByMode(questions, S.progress, S.settings.mode, sessionSize, undefined, S.settings.points));
   }
 
   function repeatSession(lastIds) {
@@ -346,7 +374,7 @@ const Quiz = (() => {
       items.push({
         q,
         optOrder: Array.isArray(m.order) && m.order.length === q.options.length ? m.order : q.options.map((_, i) => i),
-        dropOrder: Array.isArray(m.drop) && q.dropdown && m.drop.length === q.dropdown.length ? m.drop : undefined
+        dropOrder: Array.isArray(m.drop) && q.dropdown && m.drop.length === q.dropdown.length ? m.drop : (q.dropdown && q.dropdown.length > 1 ? Sched.shuffle(q.dropdown.map((_, i) => i)) : undefined)
       });
     }
     S.items = items;
@@ -585,7 +613,7 @@ const Quiz = (() => {
   return {
     S, loadCsv, tryLoadSaved, newSession, repeatSession, failedSession, toggle, setSlot, setFill,
     isAnswered, answeredCount, submit, tryResume, resetProgress, reloadProgress,
-    persistSettings, setSize, setPoints, setMode, setCat, setExamDate, setCatExamDate, quizDate, catDate,
+    persistSettings, setSize, setTimedSize, setPoints, setMode, setCat, setTimedMinutes, setExamIndex, setExamDate, setCatExamDate, quizDate, catDate,
     stats, failedCount, todayCount, newCount, scheduledByDay, questionsOnDay, scoreQuestion,
     selectQuestionnaire, examDateFor, setExamDateFor, statsFor, draftOf, resetProgressFor,
     scheduledByDayFor, questionsOnDayFor,

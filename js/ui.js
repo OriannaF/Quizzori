@@ -247,10 +247,28 @@
     pomoStateSave();
   }
 
+  let lastPomoResetClick = 0;
+
   function pomoReset() {
+    const now = Date.now();
+    const isMultiClick = (now - lastPomoResetClick) < 3000;
+    const isAlreadyAtPhaseStart = pomo.remaining === pomoDur(pomo.phase);
+    lastPomoResetClick = now;
+
     if (pomo.timer) { clearInterval(pomo.timer); pomo.timer = null; }
     pomo.running = false;
-    pomo.remaining = pomoDur(pomo.phase);
+
+    if (isMultiClick || (isAlreadyAtPhaseStart && (pomo.doneCount > 0 || pomo.phase !== "study"))) {
+      pomo.phase = "study";
+      pomo.doneCount = 0;
+      pomo.remaining = pomoDur("study");
+      lastPomoResetClick = 0;
+      toast("Pomodoro reiniciado por completo (0/4)");
+    } else {
+      pomo.remaining = pomoDur(pomo.phase);
+      toast(`Fase reiniciada (${pomoLabel()}) · Tocá de nuevo para reiniciar todo`);
+    }
+
     const box = document.getElementById("pomo");
     if (box) box.classList.remove("done");
     pomoRender();
@@ -356,7 +374,7 @@
 
   function loadSource() {
     const loadOne = (url, name) =>
-      fetch(`${url}?v=54`)
+      fetch(`${url}?v=57`)
         .then((r) => (r.ok ? r.text() : Promise.reject(new Error("no file"))))
         .then((txt) => {
           if (!txt.trim()) return { ok: false, skipped: true };
@@ -723,9 +741,30 @@
     ].map(([v, lbl]) => `<option value="${v}" ${S().settings.mode === v ? "selected" : ""}>${lbl}</option>`).join("");
   }
 
+  function timeOptions() {
+    const cur = S().settings.timedMinutes || 40;
+    const presets = [
+      [5, "5 min"],
+      [10, "10 min"],
+      [15, "15 min"],
+      [20, "20 min"],
+      [30, "30 min"],
+      [40, "40 min (Por defecto)"],
+      [45, "45 min"],
+      [60, "60 min (1h)"],
+      [90, "90 min (1h 30m)"],
+      [120, "120 min (2h)"]
+    ];
+    return presets.map(([min, label]) =>
+      `<option value="${min}" ${cur === min ? "selected" : ""}>⏱️ ${label}</option>`
+    ).join("");
+  }
+
   function sizeOptions(st) {
-    return [10, 15, 20, 25, 30, 40, 50, 0].map((n) =>
-      `<option value="${n}" ${S().settings.size === n ? "selected" : ""}>${n === 0 ? `Todas (${Math.min(1000, st.total)})` : n} preguntas</option>`).join("");
+    const isTimed = S().settings.mode === "timed";
+    const cur = isTimed ? (S().settings.timedSize || 50) : S().settings.size;
+    return [10, 15, 20, 25, 30, 40, 50, 60, 75, 100, 0].map((n) =>
+      `<option value="${n}" ${cur === n ? "selected" : ""}>${n === 0 ? `Todas (${Math.min(1000, st.total)})` : n} preguntas</option>`).join("");
   }
 
   function catOptions(hash) {
@@ -747,8 +786,13 @@
   let timedExamState = null;
 
   function formatTimer(sec) {
-    const m = Math.floor(Math.max(0, sec) / 60);
-    const s = Math.max(0, sec) % 60;
+    const total = Math.max(0, sec);
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    if (h > 0) {
+      return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    }
     return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   }
 
@@ -777,6 +821,7 @@
         updateTimerDisplay();
         if (timedExamState.remainingSec <= 0) {
           stopTimer();
+          pomoBeep();
           toast("⏰ ¡Tiempo terminado! Enviando examen…");
           submitQuiz();
         }
@@ -796,11 +841,18 @@
     Quiz.selectQuestionnaire(hash);
     const modeSel = document.getElementById("sel-mode-" + hash);
     if (modeSel) Quiz.setMode(modeSel.value);
+    const timeSel = document.getElementById("sel-time-" + hash);
+    if (timeSel && timeSel.value) Quiz.setTimedMinutes(timeSel.value);
+    const sizeSel = document.getElementById("sel-size-" + hash);
+    if (sizeSel && sizeSel.value) {
+      if (Quiz.S.settings.mode === "timed") Quiz.setTimedSize(sizeSel.value);
+      else Quiz.setSize(sizeSel.value);
+    }
+    Quiz.setExamIndex(0);
     Quiz.newSession();
     if (Quiz.S.settings.mode === "timed") {
-      const qCount = Quiz.S.items.length;
-      const durationMin = qCount === 0 ? 30 : Math.max(5, Math.min(120, Math.round(qCount * 1.5)));
-      startTimer(durationMin * 60);
+      const minutes = Quiz.S.settings.timedMinutes || 40;
+      startTimer(minutes * 60);
     } else {
       stopTimer();
       timedExamState = null;
@@ -823,11 +875,32 @@
     const flashBtn = document.getElementById("btn-flash-" + hash);
     if (flashBtn) flashBtn.addEventListener("click", () => startFlashcards(hash));
     const modeSel = document.getElementById("sel-mode-" + hash);
-    if (modeSel) modeSel.addEventListener("change", (e) => Quiz.setMode(e.target.value));
+    const timeSel = document.getElementById("sel-time-" + hash);
     const catSel = document.getElementById("sel-cat-" + hash);
-    if (catSel) catSel.addEventListener("change", (e) => Quiz.setCat(e.target.value));
     const sizeSel = document.getElementById("sel-size-" + hash);
-    if (sizeSel) sizeSel.addEventListener("change", (e) => Quiz.setSize(e.target.value));
+    if (modeSel) {
+      modeSel.addEventListener("change", (e) => {
+        const isTimed = e.target.value === "timed";
+        Quiz.setMode(e.target.value);
+        if (timeSel) timeSel.style.display = isTimed ? "" : "none";
+        if (catSel) catSel.style.display = isTimed ? "none" : "";
+        if (sizeSel) {
+          sizeSel.value = isTimed ? String(S().settings.timedSize || 50) : String(S().settings.size || 20);
+        }
+      });
+    }
+    if (timeSel) {
+      timeSel.addEventListener("change", (e) => {
+        Quiz.setTimedMinutes(e.target.value);
+      });
+    }
+    if (catSel) catSel.addEventListener("change", (e) => Quiz.setCat(e.target.value));
+    if (sizeSel) {
+      sizeSel.addEventListener("change", (e) => {
+        if (S().settings.mode === "timed") Quiz.setTimedSize(e.target.value);
+        else Quiz.setSize(e.target.value);
+      });
+    }
     const pointsInp = document.getElementById("inp-points-" + hash);
     if (pointsInp) pointsInp.addEventListener("change", (e) => Quiz.setPoints(e.target.value));
     const resetBtn = document.getElementById("btn-reset-" + hash);
@@ -848,6 +921,7 @@
     const toneCls = tone === "tone-green" ? "tone-green" : tone === "tone-purple" ? "tone-purple" : "tone-blue";
     const hasDraft = Quiz.draftOf(qq.hash);
     const mat = materiaOf(qq.hash);
+    const isTimed = S().settings.mode === "timed";
     return `
     <div class="exam-card ${tone}">
       <div class="exam-card-body">
@@ -876,11 +950,13 @@
           <button class="btn sm secondary" id="btn-flash-${st.hash}" type="button" title="Repasar con Flashcards" style="display:inline-flex; align-items:center; gap:4px;">
             <span class="material-symbols-outlined" style="font-size:18px;">style</span> Flashcards
           </button>
+          <label class="field-label visually-hidden" for="sel-time-${st.hash}">Tiempo de examen</label>
+          <select class="input sm time-sel" id="sel-time-${st.hash}" title="Tiempo límite del examen" ${isTimed ? "" : 'style="display:none;"'}>${timeOptions()}</select>
           ${(() => {
             const opts = catOptions(st.hash);
             return opts ? `
           <label class="field-label visually-hidden" for="sel-cat-${st.hash}">Categoría</label>
-          <select class="input sm cat-sel" id="sel-cat-${st.hash}">${opts}</select>` : "";
+          <select class="input sm cat-sel" id="sel-cat-${st.hash}" ${isTimed ? 'style="display:none;"' : ""}>${opts}</select>` : "";
           })()}
         </div>
         ${hasDraft ? `
@@ -1636,6 +1712,8 @@
             <select class="input sm" id="sel-size-${st.hash}">${sizeOptions(st)}</select>
             <label class="field-label visually-hidden" for="sel-mode-${st.hash}">Tipo de sesión</label>
             <select class="input sm" id="sel-mode-${st.hash}">${modeOptions(st)}</select>
+            <label class="field-label visually-hidden" for="sel-time-${st.hash}">Tiempo de examen</label>
+            <select class="input sm time-sel" id="sel-time-${st.hash}" title="Tiempo límite del examen" ${S().settings.mode === "timed" ? "" : 'style="display:none;"'}>${timeOptions()}</select>
             <button class="play-fab" id="btn-start-${st.hash}" title="Comenzar sesión">
               <span class="material-symbols-outlined">play_arrow</span>
             </button>
@@ -1643,7 +1721,7 @@
               const opts = catOptions(st.hash);
               return opts ? `
             <label class="field-label visually-hidden" for="sel-cat-${st.hash}">Categoría</label>
-            <select class="input sm cat-sel" id="sel-cat-${st.hash}">${opts}</select>` : "";
+            <select class="input sm cat-sel" id="sel-cat-${st.hash}" ${S().settings.mode === "timed" ? 'style="display:none;"' : ""}>${opts}</select>` : "";
             })()}
           </div>
           ${Quiz.draftOf(st.hash) ? `
@@ -2579,61 +2657,141 @@
 
   const isoOf = (y, m, d) => new Date(y, m, d, 12).toISOString().slice(0, 10);
 
+  function buildQuestionCardHTML(it, i, n, isExam) {
+    const q = it.q;
+    const answeredNow = Quiz.isAnswered(q.id);
+    const body = q.type === "dropdown"
+      ? (() => {
+        const chosen = S().answers[q.id] || {};
+        const order = Array.isArray(it.dropOrder) && it.dropOrder.length === q.dropdown.length
+          ? it.dropOrder
+          : (it.dropOrder = window.Scheduler ? window.Scheduler.shuffle(q.dropdown.map((_, j) => j)) : q.dropdown.map((_, j) => j));
+        const rows = q.slots.map((txt, si) => `<label class="slot ${q.slotLabels ? "slot-labeled" : ""}">
+          <span class="slot-head"><span class="slot-num">${si + 1}</span>${q.slotLabels ? `<span class="slot-lab">${esc(txt)}</span>` : ""}</span>
+          <select class="input slot-select" data-q="${q.id}" data-slot="${si}">
+            <option value="">Elegí una opción…</option>
+            ${order.map((orig) => `<option value="${orig}" ${orig === chosen[si] ? "selected" : ""}>${esc(q.dropdown[orig])}</option>`).join("")}
+          </select>
+        </label>`).join("");
+        return `<div class="qtext">${rich(q.text)}</div><div class="slot-grid">${rows}</div>`;
+      })()
+      : q.type === "fill"
+        ? (() => {
+          const val = typeof S().answers[q.id] === "string" ? S().answers[q.id] : "";
+          return `<div class="qtext">${rich(q.text)}</div>
+            <input class="input fill-input" data-q="${q.id}" placeholder="Escribí la respuesta…" value="${esc(val)}" autocomplete="off">`;
+        })()
+        : (() => {
+        const checked = S().answers[q.id] || [];
+        const opts = it.optOrder.map((orig, disp) => {
+          const on = checked.indexOf(disp) >= 0;
+          return `<label class="opt ${on ? "checked" : ""}">
+            <input type="checkbox" class="hidden-input" data-q="${q.id}" data-d="${disp}" ${on ? "checked" : ""}>
+            <span class="alpha">${LETTERS[disp]}</span>
+            <span>${rich(q.options[orig])}</span>
+          </label>`;
+        }).join("");
+        return `<div class="qtext">${rich(q.text)}</div><div class="opt-grid">${opts}</div>`;
+      })();
+    return `<div class="qcard ${isExam ? "exam-qcard" : ""}" id="qcard-${q.id}" ${answeredNow ? "" : "data-unanswered"}>
+      <div class="qhead">
+        <span class="qnum">${isExam ? `Pregunta ${i + 1}` : i + 1}<span class="muted">${isExam ? ` de ${n}` : `/${n}`}</span></span>
+        ${q.category ? `<span class="chip">${esc(q.category)}</span>` : ""}
+        ${q.type === "dropdown" ? `<span class="chip">dropdown</span>` : q.type === "fill" ? `<span class="chip">rellenar</span>` : ""}
+        <span class="chip warn" ${answeredNow ? "style='display:none'" : ""}>sin responder</span>
+      </div>
+      ${body}
+    </div>`;
+  }
+
   function renderQuiz() {
     const items = S().items;
     if (!items.length) { refreshView(); return; }
     document.body.classList.add("quiz-open");
 
+    const isExam = S().settings.mode === "timed";
     const n = items.length;
     const answered = Quiz.answeredCount();
-    const cards = items.map((it, i) => {
-      const q = it.q;
-      const answeredNow = Quiz.isAnswered(q.id);
-      const body = q.type === "dropdown"
-        ? (() => {
-          const chosen = S().answers[q.id] || {};
-          const order = Array.isArray(it.dropOrder) && it.dropOrder.length === q.dropdown.length ? it.dropOrder : q.dropdown.map((_, j) => j);
-          const rows = q.slots.map((txt, si) => `<label class="slot ${q.slotLabels ? "slot-labeled" : ""}">
-            <span class="slot-head"><span class="slot-num">${si + 1}</span>${q.slotLabels ? `<span class="slot-lab">${esc(txt)}</span>` : ""}</span>
-            <select class="input slot-select" data-q="${q.id}" data-slot="${si}">
-              <option value="">Elegí una opción…</option>
-              ${order.map((orig) => `<option value="${orig}" ${orig === chosen[si] ? "selected" : ""}>${esc(q.dropdown[orig])}</option>`).join("")}
-            </select>
-          </label>`).join("");
-          return `<div class="qtext">${rich(q.text)}</div><div class="slot-grid">${rows}</div>`;
-        })()
-        : q.type === "fill"
-          ? (() => {
-            const val = typeof S().answers[q.id] === "string" ? S().answers[q.id] : "";
-            return `<div class="qtext">${rich(q.text)}</div>
-              <input class="input fill-input" data-q="${q.id}" placeholder="Escribí la respuesta…" value="${esc(val)}" autocomplete="off">`;
-          })()
-          : (() => {
-          const checked = S().answers[q.id] || [];
-          const opts = it.optOrder.map((orig, disp) => {
-            const on = checked.indexOf(disp) >= 0;
-            return `<label class="opt ${on ? "checked" : ""}">
-              <input type="checkbox" class="hidden-input" data-q="${q.id}" data-d="${disp}" ${on ? "checked" : ""}>
-              <span class="alpha">${LETTERS[disp]}</span>
-              <span>${rich(q.options[orig])}</span>
-            </label>`;
-          }).join("");
-          return `<div class="qtext">${rich(q.text)}</div><div class="opt-grid">${opts}</div>`;
-        })();
-      return `<div class="qcard" id="qcard-${q.id}" ${answeredNow ? "" : "data-unanswered"}>
-        <div class="qhead">
-          <span class="qnum">${i + 1}<span class="muted">/${n}</span></span>
-          ${q.category ? `<span class="chip">${esc(q.category)}</span>` : ""}
-          ${q.type === "dropdown" ? `<span class="chip">dropdown</span>` : q.type === "fill" ? `<span class="chip">rellenar</span>` : ""}
-          <span class="chip warn" ${answeredNow ? "style='display:none'" : ""}>sin responder</span>
-        </div>
-        ${body}
-      </div>`;
-    }).join("");
 
+    if (isExam) {
+      const curIdx = Math.max(0, Math.min(n - 1, S().examIndex || 0));
+      S().examIndex = curIdx;
+      const it = items[curIdx];
+      const cardHTML = buildQuestionCardHTML(it, curIdx, n, true);
+
+      const timerHTML = `
+        <div class="exam-timer-bar ${timedExamState && timedExamState.remainingSec <= 30 ? "timer-critical" : timedExamState && timedExamState.remainingSec <= 120 ? "timer-warn" : ""}" id="exam-timer-bar" title="Tiempo restante para completar el examen">
+          <span class="material-symbols-outlined">timer</span>
+          <span class="timer-mode-tag">EXAMEN</span>
+          <span class="timer-digits" id="timer-digits">${formatTimer(timedExamState ? timedExamState.remainingSec : (S().settings.timedMinutes || 40) * 60)}</span>
+        </div>`;
+
+      view(`
+        <div class="exam-wrapper">
+          <div class="card exam-header-bar">
+            <div class="exam-header-left">
+              <span class="mono-label muted">${esc(S().name)}</span>
+            </div>
+            <div class="exam-header-center">
+              ${timerHTML}
+            </div>
+            <div class="exam-header-right">
+              <button class="btn sm" id="btn-exit">Salir</button>
+              <button class="btn sm primary" id="btn-submit">Finalizar Examen</button>
+            </div>
+          </div>
+
+          <div class="exam-body-grid">
+            <aside class="card exam-sidebar">
+              <div class="exam-sidebar-head">
+                <span class="mono-label"><b>Preguntas</b></span>
+                <span class="mono-label muted" id="exam-stats-answered"><b id="cnt-answered">${answered}</b>/${n}</span>
+              </div>
+              <div class="exam-legend">
+                <span class="legend-item"><span class="legend-dot current"></span> Actual</span>
+                <span class="legend-item"><span class="legend-dot answered"></span> Respondida</span>
+                <span class="legend-item"><span class="legend-dot pending"></span> Pendiente</span>
+              </div>
+              <div class="exam-num-grid" id="exam-num-grid">
+                ${items.map((item, idx) => {
+                  const isAns = Quiz.isAnswered(item.q.id);
+                  const isCur = idx === curIdx;
+                  let cls = "exam-num-btn";
+                  if (isCur) cls += " current";
+                  if (isAns) cls += " answered";
+                  return `<button class="${cls}" data-goto="${idx}" id="exam-btn-${item.q.id}" type="button" title="Pregunta ${idx + 1}">${idx + 1}</button>`;
+                }).join("")}
+              </div>
+            </aside>
+
+            <section class="exam-main-area">
+              ${cardHTML}
+              <div class="card exam-stepper-footer">
+                <button class="btn secondary" id="btn-prev-q" ${curIdx === 0 ? "disabled" : ""}>
+                  <span class="material-symbols-outlined">arrow_back</span> Anterior
+                </button>
+                <div class="mono-label muted">Pregunta ${curIdx + 1} de ${n}</div>
+                ${curIdx < n - 1 ? `
+                <button class="btn primary" id="btn-next-q">
+                  Siguiente <span class="material-symbols-outlined">arrow_forward</span>
+                </button>` : `
+                <button class="btn primary btn-exam-finish" id="btn-finish-q">
+                  <span class="material-symbols-outlined">check_circle</span> Finalizar Examen
+                </button>`}
+              </div>
+            </section>
+          </div>
+        </div>
+      `);
+      bindQuizEvents(true);
+      return;
+    }
+
+    const cards = items.map((it, i) => buildQuestionCardHTML(it, i, n, false)).join("");
     const timerHTML = timedExamState ? `
       <div class="exam-timer-bar" id="exam-timer-bar" title="Tiempo restante para completar el examen">
         <span class="material-symbols-outlined">timer</span>
+        <span class="timer-mode-tag">EXAMEN</span>
         <span class="timer-digits" id="timer-digits">${formatTimer(timedExamState.remainingSec)}</span>
       </div>` : "";
 
@@ -2653,15 +2811,20 @@
         <button class="btn primary" id="btn-submit">Finalizar y ver puntaje</button>
       </div>
     `);
-    bindQuizEvents();
+    bindQuizEvents(false);
   }
 
   function updateQuizUI() {
     const n = S().items.length;
     const answered = Quiz.answeredCount();
-    $("#bar").style.width = Math.round((answered / n) * 100) + "%";
-    $("#cnt-answered").textContent = answered;
-    $("#pending-label").textContent = `${n - answered} sin responder`;
+    const bar = document.getElementById("bar");
+    if (bar) bar.style.width = Math.round((answered / n) * 100) + "%";
+    const cnt = document.getElementById("cnt-answered");
+    if (cnt) cnt.textContent = answered;
+    const pLabel = document.getElementById("pending-label");
+    if (pLabel) pLabel.textContent = `${n - answered} sin responder`;
+    const eStats = document.getElementById("exam-stats-answered");
+    if (eStats) eStats.innerHTML = `<b id="cnt-answered">${answered}</b>/${n}`;
   }
 
   const advanceTimers = {};
@@ -2695,24 +2858,65 @@
 
   function setAnsweredState(card, qid) {
     const answeredNow = Quiz.isAnswered(qid);
-    const chip = card.querySelector(".chip.warn");
-    if (chip) chip.style.display = answeredNow ? "none" : "";
-    if (answeredNow) card.removeAttribute("data-unanswered");
-    else card.setAttribute("data-unanswered", "");
+    if (card) {
+      const chip = card.querySelector(".chip.warn");
+      if (chip) chip.style.display = answeredNow ? "none" : "";
+      if (answeredNow) card.removeAttribute("data-unanswered");
+      else card.setAttribute("data-unanswered", "");
+    }
+    const btn = document.getElementById("exam-btn-" + qid);
+    if (btn) btn.classList.toggle("answered", answeredNow);
     updateQuizUI();
     return answeredNow;
   }
 
-  function bindQuizEvents() {
-    $("#btn-exit").addEventListener("click", () => {
-      if (confirm("¿Salir de la sesión? Tus respuestas se guardan y podés continuar después.")) {
-        stopTimer();
-        timedExamState = null;
-        document.body.classList.remove("quiz-open");
-        navigate(returnView);
-      }
+  function bindQuizEvents(isExam) {
+    const exitBtn = document.getElementById("btn-exit");
+    if (exitBtn) {
+      exitBtn.addEventListener("click", () => {
+        if (confirm("¿Salir de la sesión? Tus respuestas se guardan y podés continuar después.")) {
+          stopTimer();
+          timedExamState = null;
+          document.body.classList.remove("quiz-open");
+          navigate(returnView);
+        }
+      });
+    }
+    const submitBtn = document.getElementById("btn-submit");
+    if (submitBtn) submitBtn.addEventListener("click", submitQuiz);
+    const finishBtn = document.getElementById("btn-finish-q");
+    if (finishBtn) finishBtn.addEventListener("click", submitQuiz);
+
+    const prevBtn = document.getElementById("btn-prev-q");
+    if (prevBtn) {
+      prevBtn.addEventListener("click", () => {
+        if (S().examIndex > 0) {
+          Quiz.setExamIndex(S().examIndex - 1);
+          renderQuiz();
+        }
+      });
+    }
+
+    const nextBtn = document.getElementById("btn-next-q");
+    if (nextBtn) {
+      nextBtn.addEventListener("click", () => {
+        if (S().examIndex < S().items.length - 1) {
+          Quiz.setExamIndex(S().examIndex + 1);
+          renderQuiz();
+        }
+      });
+    }
+
+    document.querySelectorAll(".exam-num-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const goto = parseInt(btn.dataset.goto, 10);
+        if (!isNaN(goto)) {
+          Quiz.setExamIndex(goto);
+          renderQuiz();
+        }
+      });
     });
-    $("#btn-submit").addEventListener("click", submitQuiz);
+
     document.querySelectorAll(".opt input[type=checkbox]").forEach((input) => {
       input.addEventListener("change", (e) => {
         const qid = parseInt(e.target.dataset.q, 10);
@@ -2722,9 +2926,10 @@
         e.target.closest(".opt").classList.toggle("checked", e.target.checked);
         const card = document.getElementById("qcard-" + qid);
         const answeredNow = setAnsweredState(card, qid);
-        if (!wasAnswered && answeredNow) scheduleAdvance(qid, 500);
+        if (!isExam && !wasAnswered && answeredNow) scheduleAdvance(qid, 500);
       });
     });
+
     document.querySelectorAll(".slot-select").forEach((sel) => {
       sel.addEventListener("change", (e) => {
         const qid = parseInt(e.target.dataset.q, 10);
@@ -2734,9 +2939,10 @@
         Quiz.setSlot(qid, slot, val);
         const card = document.getElementById("qcard-" + qid);
         const answeredNow = setAnsweredState(card, qid);
-        if (!wasAnswered && answeredNow) scheduleAdvance(qid, 400);
+        if (!isExam && !wasAnswered && answeredNow) scheduleAdvance(qid, 400);
       });
     });
+
     document.querySelectorAll(".fill-input").forEach((inp) => {
       inp.addEventListener("input", (e) => {
         const qid = parseInt(e.target.dataset.q, 10);
@@ -2744,7 +2950,7 @@
         Quiz.setFill(qid, e.target.value);
         const card = document.getElementById("qcard-" + qid);
         const answeredNow = setAnsweredState(card, qid);
-        if (!wasAnswered && answeredNow) {
+        if (!isExam && !wasAnswered && answeredNow) {
           clearTimeout(advanceTimers["f" + qid]);
           advanceTimers["f" + qid] = setTimeout(() => {
             delete advanceTimers["f" + qid];
@@ -2760,17 +2966,40 @@
           clearTimeout(advanceTimers["f" + qid]);
           delete advanceTimers["f" + qid];
         }
-        if (Quiz.isAnswered(qid)) scheduleAdvance(qid, 0);
+        if (!isExam && Quiz.isAnswered(qid)) scheduleAdvance(qid, 0);
       });
+    });
+  }
+
+  function scrollToScore() {
+    requestAnimationFrame(() => {
+      const hero = document.getElementById("result-hero") || document.querySelector(".result-hero");
+      if (!hero) {
+        try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (e) { window.scrollTo(0, 0); }
+        return;
+      }
+      try {
+        hero.scrollIntoView({ behavior: "smooth", block: "start" });
+      } catch (e) {
+        window.scrollTo(0, 0);
+      }
+      const pctEl = document.getElementById("result-pct") || hero.querySelector(".pct");
+      if (pctEl) {
+        pctEl.classList.remove("score-pop");
+        void pctEl.offsetWidth;
+        pctEl.classList.add("score-pop");
+      }
     });
   }
 
   function submitQuiz() {
     let examStats = null;
     if (timedExamState) {
+      const elapsed = timedExamState.elapsedSec || Math.round((Date.now() - timedExamState.startAt) / 1000);
       examStats = {
-        elapsedSec: timedExamState.elapsedSec || Math.round((Date.now() - timedExamState.startAt) / 1000),
-        durationSec: timedExamState.durationSec
+        elapsedSec: Math.min(timedExamState.durationSec, elapsed),
+        durationSec: timedExamState.durationSec,
+        timedOut: timedExamState.remainingSec <= 0
       };
       stopTimer();
       timedExamState = null;
@@ -2779,7 +3008,7 @@
     if (examStats) res.examStats = examStats;
     document.body.classList.remove("quiz-open");
     renderResults(res);
-    window.scrollTo(0, 0);
+    scrollToScore();
   }
 
   function explainBlock(txt) {
@@ -2854,17 +3083,18 @@
     }).join("");
 
     view(`
-      <div class="card result-hero">
+      <div class="card result-hero" id="result-hero">
         <div class="mono-label muted">Resultado · ${esc(S().name)}</div>
-        <div class="big">${fmt(r.total)} <span class="muted">/ ${fmt(r.max)} puntos</span></div>
-        <div class="pct ${pct === 100 ? "ok-c" : pct >= 60 ? "" : "bad-c"}">${pct} %</div>
+        <div class="big" id="result-score">${fmt(r.total)} <span class="muted">/ ${fmt(r.max)} puntos</span></div>
+        <div class="pct ${pct === 100 ? "ok-c" : pct >= 60 ? "" : "bad-c"}" id="result-pct">${pct} %</div>
         ${r.examStats ? `
-        <div style="display:flex; justify-content:center; gap:12px; margin:10px 0; align-items:center; flex-wrap:wrap;">
+        <div class="exam-result-summary" style="display:flex; justify-content:center; gap:12px; margin:10px 0; align-items:center; flex-wrap:wrap;">
           <span class="exam-badge ${pct >= 60 ? "passed" : "failed"}">
             <span class="material-symbols-outlined" style="font-size:16px;">${pct >= 60 ? "check_circle" : "cancel"}</span>
-            ${pct >= 60 ? "Aprobado" : "No aprobado"}
+            ${pct >= 60 ? "Aprobado (60%+)" : "No aprobado"}
           </span>
-          <span class="mono-label muted">⏱️ Tiempo empleado: ${Math.floor(r.examStats.elapsedSec / 60)}m ${r.examStats.elapsedSec % 60}s</span>
+          <span class="mono-label muted">⏱️ Tiempo empleado: ${Math.floor(r.examStats.elapsedSec / 60)}m ${r.examStats.elapsedSec % 60}s / ${Math.floor(r.examStats.durationSec / 60)}m</span>
+          ${r.examStats.timedOut ? '<span class="chip warn">Tiempo agotado</span>' : ""}
         </div>` : ""}
         <div class="msg">${msg}</div>
         <div class="btn-row justify-center">
@@ -2877,9 +3107,21 @@
       ${rows}
     `);
 
-    document.getElementById("btn-repeat").addEventListener("click", () => { Quiz.repeatSession(); renderQuiz(); });
-    document.getElementById("btn-fail").addEventListener("click", () => { Quiz.failedSession(); renderQuiz(); });
-    document.getElementById("btn-next").addEventListener("click", () => { Quiz.newSession(); renderQuiz(); });
+    document.getElementById("btn-repeat").addEventListener("click", () => {
+      Quiz.repeatSession();
+      if (S().settings.mode === "timed") startTimer((S().settings.timedMinutes || 30) * 60);
+      renderQuiz();
+    });
+    document.getElementById("btn-fail").addEventListener("click", () => {
+      Quiz.failedSession();
+      if (S().settings.mode === "timed") startTimer((S().settings.timedMinutes || 30) * 60);
+      renderQuiz();
+    });
+    document.getElementById("btn-next").addEventListener("click", () => {
+      Quiz.newSession();
+      if (S().settings.mode === "timed") startTimer((S().settings.timedMinutes || 30) * 60);
+      renderQuiz();
+    });
     document.getElementById("btn-home").addEventListener("click", () => navigate(returnView));
     document.querySelectorAll(".explain-toggle").forEach((b) => b.addEventListener("click", () => {
       const wrap = b.closest(".explain-wrap");

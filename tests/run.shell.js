@@ -57,6 +57,17 @@ const click = (sel) => {
   log("nav active state", $('#main-nav [data-view="inicio"]').classList.contains("active") ? "OK" : "FAIL");
   log("topbar stable", $("#pomo-time").textContent === "25:00" && $("#top-date") ? "OK" : "FAIL");
 
+  // Pomodoro reset test
+  click("#pomo-play");
+  await sleep(50);
+  click("#pomo-reset");
+  await sleep(50);
+  const resetOnce = $("#pomo-time").textContent === "25:00";
+  click("#pomo-reset");
+  await sleep(50);
+  const resetFull = $("#pomo-time").textContent === "25:00" && $("#pomo-dots .done") === null;
+  log("pomo multi-reset", resetOnce && resetFull ? "OK" : "FAIL");
+
   click('#main-nav [data-view="cursos"]');
   await sleep(50);
   log("cursos view", $("#app").textContent.toLowerCase().includes("materias") ? "OK" : "FAIL");

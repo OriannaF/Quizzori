@@ -25,10 +25,10 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@700;800&family=Manrope:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,500,1,0&display=swap">
   </noscript>
-  <link rel="preload" as="fetch" href="data/cuestionario.csv?v=54" crossorigin>
-  <link rel="preload" as="fetch" href="data/cuestionario%20Burpleria.csv?v=54" crossorigin>
-  <link rel="preload" as="fetch" href="data/cuestionario%20Primer%20Parcial%202026.csv?v=54" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=54">
+  <link rel="preload" as="fetch" href="data/cuestionario.csv?v=57" crossorigin>
+  <link rel="preload" as="fetch" href="data/cuestionario%20Burpleria.csv?v=57" crossorigin>
+  <link rel="preload" as="fetch" href="data/cuestionario%20Primer%20Parcial%202026.csv?v=57" crossorigin>
+  <link rel="stylesheet" href="css/style.css?v=57">
 </head>
 <body>
   <div class="bg-glow" aria-hidden="true">
@@ -67,59 +67,48 @@
           <button class="pomo-btn pomo-play" id="pomo-play" type="button" title="Iniciar / Pausar">
             <span class="material-symbols-outlined">play_arrow</span>
           </button>
-          <button class="pomo-btn" id="pomo-reset" type="button" title="Reiniciar fase">
+          <button class="pomo-btn" id="pomo-reset" type="button" title="Reiniciar fase (tocá de nuevo para reiniciar todo)">
             <span class="material-symbols-outlined">restart_alt</span>
           </button>
           <div class="pomo-panel" id="pomo-panel" hidden>
             <div class="pomo-panel-title">Pomodoro</div>
             <label>Estudio (min)<input type="number" id="pomo-study" min="1" max="120" value="25"></label>
             <label>Pausa corta (min)<input type="number" id="pomo-short" min="1" max="60" value="5"></label>
-            <label>Pausa larga (min)<input type="number" id="pomo-long" min="1" max="90" value="15"></label>
-            <div class="muted small">Pausa larga cada 4 estudios.</div>
+            <label>Pausa larga (min)<input type="number" id="pomo-long" min="1" max="60" value="15"></label>
           </div>
         </div>
-        <button id="theme-toggle" class="theme-switch" type="button" aria-label="Cambiar tema">
-          <span class="material-symbols-outlined ic-sun">light_mode</span>
-          <span class="switch-track"><span class="switch-knob"></span></span>
-          <span class="material-symbols-outlined ic-moon">dark_mode</span>
-        </button>
-        <button id="acct-btn" class="acct-chip" type="button" title="Iniciar sesión con Google">
-          <span class="material-symbols-outlined" id="acct-ic">person</span>
-          <span class="acct-name" id="acct-name">Entrar</span>
-        </button>
+        <div class="user-chip" id="user-chip" title="Estado de sincronización">
+          <span class="material-symbols-outlined user-avatar">cloud</span>
+          <span class="user-name" id="user-display">Local</span>
+        </div>
       </div>
     </div>
   </header>
 
-  <main id="app" class="app-main">
-    <div class="view">
-      <div class="card center">
-        <h2>Cargando…</h2>
-        <p class="muted">Trayendo tus cuestionarios.</p>
-      </div>
-    </div>
+  <main class="app-main" id="app">
+    <div class="card p-xl tc text-muted">Cargando cuestionarios…</div>
   </main>
 
-  <nav class="bottom-nav" id="bottom-nav" aria-label="Secciones">
+  <nav class="nav nav-bottom" id="bottom-nav" aria-label="Secciones">
     <a href="#" class="nav-item active" data-view="inicio">
-      <span class="material-symbols-outlined">grid_view</span><span>Inicio</span>
+      <span class="material-symbols-outlined">home</span><span>Inicio</span>
     </a>
     <a href="#" class="nav-item" data-view="cursos">
-      <span class="material-symbols-outlined">menu_book</span><span>Materias</span>
+      <span class="material-symbols-outlined">auto_stories</span><span>Materias</span>
     </a>
     <a href="#" class="nav-item" data-view="juegos">
       <span class="material-symbols-outlined">extension</span><span>Juegos</span>
     </a>
   </nav>
 
-  <script src="js/storage.js?v=54"></script>
-  <script src="js/csv.js?v=54"></script>
-  <script src="js/scheduler.js?v=54"></script>
-  <script src="js/quiz.js?v=54"></script>
-  <script src="js/game.js?v=54"></script>
-  <script src="js/crossword.js?v=54"></script>
-  <script src="js/cloud.js?v=54"></script>
-  <script src="js/ui.js?v=54"></script>
+  <script src="js/storage.js?v=57"></script>
+  <script src="js/csv.js?v=57"></script>
+  <script src="js/scheduler.js?v=57"></script>
+  <script src="js/quiz.js?v=57"></script>
+  <script src="js/game.js?v=57"></script>
+  <script src="js/crossword.js?v=57"></script>
+  <script src="js/cloud.js?v=57"></script>
+  <script src="js/ui.js?v=57"></script>
   <script>
     document.addEventListener("DOMContentLoaded", function () {
       window.UI.init();

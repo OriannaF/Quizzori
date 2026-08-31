@@ -69,6 +69,20 @@ const CSV = (() => {
   const isExplicacion = (n) => ["explicacion", "explicacionrespuesta", "explanation", "nota", "retroalimentacion"].includes(n);
   const isOpciones = (n) => ["opciones", "opcionesdropdown", "opcionesdedropdown", "opcionesrespuesta", "dropdown", "respuestasposibles"].includes(n);
 
+  const unquote = (t) => {
+    let s = String(t == null ? "" : t).trim();
+    while (
+      (s.startsWith('"') && s.endsWith('"') && s.length > 1) ||
+      (s.startsWith("'") && s.endsWith("'") && s.length > 1) ||
+      (s.startsWith("“") && s.endsWith("”") && s.length > 1) ||
+      (s.startsWith("«") && s.endsWith("»") && s.length > 1)
+    ) {
+      s = s.slice(1, -1).trim();
+    }
+    s = s.replace(/^["'“”«»]+/, "").replace(/["'“”«»]+$/, "").trim();
+    return s;
+  };
+
   function parseQuestions(text) {
     const rows = parseCSV(text);
     if (!rows.length) return { ok: false, errors: ["El archivo está vacío."] };
@@ -108,20 +122,20 @@ const CSV = (() => {
       const row = data[r];
       const line = r + 2;
       const rowErrors = [];
-      const textQ = String(row[qi] || "").trim();
+      const textQ = unquote(row[qi]);
       if (!textQ) {
         warnings.push(`Fila ${line}: falta el texto de la pregunta. Se omitió.`);
         continue;
       }
 
       const rawMap = String(row[ci] || "").trim();
-      const mapTokens = rawMap ? rawMap.split(/[;|]/).map((t) => t.trim()).filter(Boolean) : [];
+      const mapTokens = rawMap ? rawMap.split(/[;|]/).map(unquote).filter(Boolean) : [];
       const collectCands = () => {
         const cols = [];
         const ncols = Math.max(header.length, row.length);
         for (let i = 0; i < ncols; i++) {
           if (i === qi || i === ci || i === cati || i === expi) continue;
-          const v = String(row[i] || "").trim();
+          const v = unquote(row[i]);
           if (v) cols.push(v);
         }
         return cols;
@@ -148,11 +162,11 @@ const CSV = (() => {
             type: "dropdown",
             text: textQ,
             options: [],
-            slots: keys.map((k) => candCols[k - 1]),
+            slots: keys.map((k) => unquote(candCols[k - 1])),
             correctSlot: keys.map((k) => poolNumsSorted.indexOf(pairMap[k])),
-            dropdown: poolNumsSorted.map((n) => candCols[n - 1]),
-            category: String(cati >= 0 ? row[cati] || "" : "").trim(),
-            explanation: String(expi >= 0 ? row[expi] || "" : "").trim(),
+            dropdown: poolNumsSorted.map((n) => unquote(candCols[n - 1])),
+            category: unquote(cati >= 0 ? row[cati] || "" : ""),
+            explanation: unquote(expi >= 0 ? row[expi] || "" : ""),
             slotLabels: true
           });
         }
@@ -167,9 +181,9 @@ const CSV = (() => {
         const menuMap = new Map();
         mapTokens.forEach((t) => {
           const n = normText(t);
-          if (!menuMap.has(n)) menuMap.set(n, t);
+          if (!menuMap.has(n)) menuMap.set(n, unquote(t));
         });
-        const dropdown = [...menuMap.values()];
+        const dropdown = [...menuMap.values()].map(unquote);
         if (!candCols.length) warnings.push(`Fila ${line}: no hay celdas con las afirmaciones del cruce. Se omitió.`);
         else if (statements.length === 0) warnings.push(`Fila ${line}: todas las celdas coinciden con respuestas de 'correctas', faltan las afirmaciones. Se omitió.`);
         else if (statements.length !== mapTokens.length) warnings.push(`Fila ${line}: hay ${statements.length} afirmaciones pero ${mapTokens.length} respuestas en 'correctas' (tienen que coincidir, en orden). Se omitió.`);
@@ -180,11 +194,11 @@ const CSV = (() => {
             type: "dropdown",
             text: textQ,
             options: [],
-            slots: statements,
+            slots: statements.map(unquote),
             correctSlot: mapTokens.map((t) => dropdown.findIndex((d) => normText(d) === normText(t))),
             dropdown,
-            category: String(cati >= 0 ? row[cati] || "" : "").trim(),
-            explanation: String(expi >= 0 ? row[expi] || "" : "").trim(),
+            category: unquote(cati >= 0 ? row[cati] || "" : ""),
+            explanation: unquote(expi >= 0 ? row[expi] || "" : ""),
             slotLabels: true
           });
         }
@@ -192,16 +206,12 @@ const CSV = (() => {
       }
 
       if (isDropdown) {
-        const unquote = (t) => {
-          const s = String(t || "").trim();
-          return s.length > 1 && s.startsWith('"') && s.endsWith('"') ? s.slice(1, -1).trim() : s;
-        };
         const optsRaw = oi >= 0 ? String(row[oi] || "").trim() : "";
-        const dropdown = optsRaw ? optsRaw.split(/[;|]/).map((t) => unquote(t)).filter(Boolean) : [];
+        const dropdown = optsRaw ? optsRaw.split(/[;|]/).map(unquote).filter(Boolean) : [];
         const slotVals = [];
         const slotErrors = [];
         for (const sc of slotCols) {
-          const v = unquote(String(row[sc.i] || ""));
+          const v = unquote(row[sc.i]);
           if (!v) continue;
           const idx = dropdown.indexOf(v);
           if (idx < 0) slotErrors.push(`'${v}' no está en la lista de opciones`);
@@ -228,8 +238,8 @@ const CSV = (() => {
             slots: slotVals.map((s) => s.text),
             correctSlot: slotVals.map((s) => s.idx),
             dropdown,
-            category: String(cati >= 0 ? row[cati] || "" : "").trim(),
-            explanation: String(expi >= 0 ? row[expi] || "" : "").trim()
+            category: unquote(cati >= 0 ? row[cati] || "" : ""),
+            explanation: unquote(expi >= 0 ? row[expi] || "" : "")
           });
           continue;
         }
@@ -240,7 +250,7 @@ const CSV = (() => {
       const rowOptions = [];
       for (let c = qi + 1; c < ci && c < row.length; c++) {
         if (c === cati || c === expi || c === oi) continue;
-        const v = String(row[c] || "").trim();
+        const v = unquote(row[c]);
         if (v) rowOptions.push(v);
       }
       const hasOneOption = rowOptions.length === 1;
@@ -252,7 +262,7 @@ const CSV = (() => {
           correctVal = rowOptions[0];
         }
         const raw = String(row[ci] || "").trim();
-        const accepted = raw ? raw.split(/[;|]/).map((t) => t.trim()).filter(Boolean) : [];
+        const accepted = raw ? raw.split(/[;|]/).map(unquote).filter(Boolean) : [];
         const seen = new Set();
         const clean = accepted.length ? accepted.filter((t) => {
           const n = normText(t);
@@ -270,8 +280,8 @@ const CSV = (() => {
           text: textQ,
           options: [],
           correct: clean,
-          category: String(cati >= 0 ? row[cati] || "" : "").trim(),
-          explanation: String(expi >= 0 ? row[expi] || "" : "").trim()
+          category: unquote(cati >= 0 ? row[cati] || "" : ""),
+          explanation: unquote(expi >= 0 ? row[expi] || "" : "")
         });
         continue;
       }
@@ -308,8 +318,8 @@ const CSV = (() => {
         text: textQ,
         options,
         correct: correct.sort((a, b) => a - b),
-        category: String(cati >= 0 ? row[cati] || "" : "").trim(),
-        explanation: String(expi >= 0 ? row[expi] || "" : "").trim()
+        category: unquote(cati >= 0 ? row[cati] || "" : ""),
+        explanation: unquote(expi >= 0 ? row[expi] || "" : "")
       });
     }
     if (warnings.length) return { ok: true, questions, warnings };

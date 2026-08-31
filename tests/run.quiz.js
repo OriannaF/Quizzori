@@ -72,14 +72,17 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   const csvDrop = [
     "pregunta,categoria,opciones,respuesta1,respuesta2,correctas,explicacion",
-    'Drop con comillas?,Cat,"alpha";"beta";"gamma",beta,alpha,2,'
+    'Drop con comillas?,Cat,"alpha";"beta";"gamma",beta,alpha,2,',
+    'Drop con comillas 2?,Cat,"""ConceptoA"";""ConceptoB""",ConceptoA,ConceptoB,1;2,'
   ].join("\n");
   const prDrop = w.CSV.parseQuestions(csvDrop);
   const dq2 = prDrop.questions[0];
+  const dq3 = prDrop.questions[1];
   log("csv dropdown sin comillas", dq2 && dq2.type === "dropdown"
     && dq2.dropdown.join("|") === "alpha|beta|gamma"
     && dq2.slots.join("|") === "beta|alpha"
     && dq2.correctSlot.join("|") === "1|0"
+    && dq3 && dq3.dropdown.join("|") === "ConceptoA|ConceptoB"
     && !prDrop.warnings.length ? "OK" : "FAIL " + JSON.stringify(prDrop.warnings));
 
   const Sch = w.Scheduler;
@@ -163,6 +166,57 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const exitFc = $("#btn-fc-exit");
     if (exitFc) exitFc.click();
     await sleep(50);
+  }
+
+  // Timed exam mode test
+  click2('#main-nav [data-view="inicio"]');
+  await sleep(50);
+  w.Quiz.setTimedMinutes(45);
+  log("timed minutes setting", w.Quiz.S.settings.timedMinutes === 45 ? "OK" : "FAIL");
+
+  const timedItems = Sch.buildByMode(qsF, {}, "timed", 2);
+  log("scheduler timed mode", timedItems.length === 2 ? "OK" : "FAIL");
+
+  const modeSelect = $('[id^="sel-mode-"]');
+  const timeSelect = $('[id^="sel-time-"]');
+  if (modeSelect && timeSelect) {
+    modeSelect.value = "timed";
+    modeSelect.dispatchEvent(new w.Event("change", { bubbles: true }));
+    log("time select visibility", timeSelect.style.display !== "none" ? "OK" : "FAIL");
+    timeSelect.value = "15";
+    timeSelect.dispatchEvent(new w.Event("change", { bubbles: true }));
+    log("time select change", w.Quiz.S.settings.timedMinutes === 15 ? "OK" : "FAIL");
+
+    const sBtn = $('[id^="btn-start-"]');
+    if (sBtn) {
+      sBtn.click();
+      await sleep(100);
+      log("exam timer bar active", $("#exam-timer-bar") && $("#timer-digits").textContent.includes("15:00") ? "OK" : "FAIL");
+      log("exam paginated layout", $(".exam-wrapper") && $(".exam-sidebar") && $(".exam-num-grid") && w.document.querySelectorAll(".exam-qcard").length === 1 ? "OK" : "FAIL");
+      const nextQ = $("#btn-next-q");
+      if (nextQ) {
+        nextQ.click();
+        await sleep(50);
+        log("exam next question", w.Quiz.S.examIndex === 1 ? "OK" : "FAIL");
+      }
+      const prevQ = $("#btn-prev-q");
+      if (prevQ) {
+        prevQ.click();
+        await sleep(50);
+        log("exam prev question", w.Quiz.S.examIndex === 0 ? "OK" : "FAIL");
+      }
+      const numBtns = w.document.querySelectorAll(".exam-num-btn");
+      if (numBtns.length > 2) {
+        numBtns[2].click();
+        await sleep(50);
+        log("exam num grid jump", w.Quiz.S.examIndex === 2 ? "OK" : "FAIL");
+      }
+      $("#btn-submit").click();
+      await sleep(200);
+      log("exam results score anchor", $("#result-hero") && $("#result-score") && $(".exam-result-summary") ? "OK" : "FAIL");
+      click2("#btn-home");
+      await sleep(50);
+    }
   }
 
   const errs = errors.filter(e => !/not implemented|Could not load|css/i.test(e));

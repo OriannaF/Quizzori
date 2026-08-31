@@ -160,6 +160,8 @@ const Scheduler = (() => {
         return buildFailedSession(questions, progress, size, fullPoints == null ? 1 : fullPoints, now);
       case "all":
         return cap([].concat(unseen, due, rest).sort(weakSort(progress)));
+      case "timed":
+        return cap(shuffle(questions.map((q) => q.id)));
       case "random":
       default:
         return buildSession(questions, progress, size, now);
