@@ -1,4 +1,4 @@
-﻿pregunta;categoria;opcion1;opcion2;opcion3;opcion4;opcion5;opcion6;opcion7;opcion8;correctas;explicacion
+pregunta;categoria;opcion1;opcion2;opcion3;opcion4;opcion5;opcion6;opcion7;opcion8;correctas;explicacion
 De acuerdo al Proceso Unificado, de los siguientes ¿Cuales son flujo de trabajo de soporte?;Proceso Unificado;Identificar las HU a incluir en el Sprint;Gestion de la configuracion;Despliegue;Construccion;Entorno de desarrollo;Pruebas;;;"2;5";" Flujos de Trabajo (Disciplinas) de Soporte en el Proceso Unificado
 Explicación: El Proceso Unificado clasifica sus flujos de trabajo (disciplinas) en dos categorías [cite: 18]:
 Flujos de Ingeniería (Core): Requisitos, Análisis, Diseño, Implementación, Pruebas y Despliegue [cite: 18].
@@ -302,3 +302,11 @@ Opción 4: ""Son el primer tipo de sistemas de información que se implanta en l
 La verdad: Característica de los Sistemas Transaccionales, los cuales construyen la plataforma de datos obligatoria para que un DSS pueda operar posteriormente [cite: 11, 14, 56, 178, 181, 215].
 Opción 5: ""Son fácilmente adaptables a paquetes de aplicación que se encuentran en el mercado"" [cite: 13, 180, 215].
 La verdad: Característica de los Sistemas Transaccionales, dado que automatizan operaciones básicas y estandarizadas que son comunes en casi todas las organizaciones (como facturación o nómina) [cite: 13, 180, 215]."
+"Identifique en la lista que aparece al pie, los distintos pasos para la resolución de problemas. Arrastrarlos y ordénelos en la secuencia que corresponda:";"Resolución de Problemas";"Planear la operación y ponerla en marcha";"Definir claramente el problema (Redefinir)";"Proponer Soluciones";"Evaluar los resultados";"Conocimiento de las causas del problema";"Evaluar y seleccionar soluciones";"Determinar el problema y sus asociados";"";"7;2;5;3;6;1;4";"Pasos ordenados para la resolución de problemas:
+1) Determinar el problema y sus asociados
+2) Definir claramente el problema (Redefinir)
+3) Conocimiento de las causas del problema
+4) Proponer Soluciones
+5) Evaluar y seleccionar soluciones
+6) Planear la operación y ponerla en marcha
+7) Evaluar los resultados"
