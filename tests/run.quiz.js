@@ -283,6 +283,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     }]);
     const foundRepoQ = w.Quiz.S.questionnaires.some(qz => qz.name === "Repo Quiz Test" && qz.questions.some(q => q.text === "Repo Pregunta Test"));
     log("loadRepoImageQuestions merged", foundRepoQ ? "OK" : "FAIL");
+
+    const repoQz = w.Quiz.S.questionnaires.find(qz => qz.name === "Repo Quiz Test");
+    w.Quiz.selectQuestionnaire(repoQz.hash);
+    w.Quiz.setTypeFilter("image_puzzle");
+    w.Quiz.newSession();
+    log("session with image_puzzle filter builds items", w.Quiz.S.items.length === 1 ? "OK" : "FAIL (" + w.Quiz.S.items.length + ")");
+    w.Quiz.setTypeFilter("");
   }
 
   const errs = errors.filter(e => !/not implemented|Could not load|css/i.test(e));

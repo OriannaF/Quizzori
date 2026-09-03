@@ -307,15 +307,19 @@ const Quiz = (() => {
     }
     const isTimed = S.settings.mode === "timed";
     const want = !isTimed ? String(S.settings.cat || "").trim() : "";
-    if (want) {
-      questions = questions.filter((q) => (q.category || "").trim() === want);
-    }
     const wantType = !isTimed ? String(S.settings.typeFilter || "").trim() : "";
+    let filtered = questions;
+    if (want) {
+      const byCat = filtered.filter((q) => (q.category || "").trim() === want);
+      if (byCat.length > 0 || !wantType) {
+        filtered = byCat;
+      }
+    }
     if (wantType) {
-      questions = questions.filter((q) => (q.type || "select") === wantType);
+      filtered = filtered.filter((q) => (q.type || "select") === wantType);
     }
     const sessionSize = isTimed ? (S.settings.timedSize || 50) : S.settings.size;
-    buildFrom(() => Sched.buildByMode(questions, S.progress, S.settings.mode, sessionSize, undefined, S.settings.points));
+    buildFrom(() => Sched.buildByMode(filtered, S.progress, S.settings.mode, sessionSize, undefined, S.settings.points));
   }
 
   function repeatSession(lastIds) {
@@ -469,11 +473,12 @@ const Quiz = (() => {
     for (const m of d.items) {
       const q = S.questions[m.idx];
       if (!q) return false;
+      const opts = Array.isArray(q.options) ? q.options : [];
       items.push({
         q,
-        optOrder: Array.isArray(m.order) && m.order.length === q.options.length ? m.order : q.options.map((_, i) => i),
+        optOrder: Array.isArray(m.order) && m.order.length === opts.length ? m.order : opts.map((_, i) => i),
         dropOrder: Array.isArray(m.drop) && q.dropdown && m.drop.length === q.dropdown.length ? m.drop : (q.dropdown && q.dropdown.length > 1 ? Sched.shuffle(q.dropdown.map((_, i) => i)) : undefined),
-        initialOrder: Array.isArray(m.initOrder) && q.options && m.initOrder.length === q.options.length ? m.initOrder : (q.type === "order" ? Sched.shuffle(q.options.map((_, i) => i)) : undefined)
+        initialOrder: Array.isArray(m.initOrder) && q.options && m.initOrder.length === q.options.length ? m.initOrder : (q.type === "order" ? Sched.shuffle(opts.map((_, i) => i)) : undefined)
       });
     }
     S.items = items;
@@ -754,6 +759,8 @@ const Quiz = (() => {
         if (!exists) {
           const newQ = Object.assign({}, q);
           newQ.id = target.questions.length;
+          newQ.options = Array.isArray(q.options) ? q.options : [];
+          newQ.slots = Array.isArray(q.slots) ? q.slots : [];
           target.questions.push(newQ);
         }
       });

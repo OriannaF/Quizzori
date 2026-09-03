@@ -91,7 +91,9 @@ const Scheduler = (() => {
   };
 
   function makeItem(q) {
-    const it = { q, optOrder: shuffle(q.options.map((_, i) => i)) };
+    if (!q) return { q: {}, optOrder: [] };
+    const opts = Array.isArray(q.options) ? q.options : [];
+    const it = { q, optOrder: shuffle(opts.map((_, i) => i)) };
     if (q.type === "dropdown" && Array.isArray(q.dropdown) && q.dropdown.length > 1) {
       it.dropOrder = shuffle(q.dropdown.map((_, i) => i));
     }
@@ -106,6 +108,9 @@ const Scheduler = (() => {
         }
       }
       it.initialOrder = initOrd;
+    }
+    if (q.type === "image_puzzle" && Array.isArray(q.slots) && q.slots.length > 1) {
+      it.pieceOrder = shuffle(q.slots.map((_, i) => i));
     }
     return it;
   }
