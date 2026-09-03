@@ -272,6 +272,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
     const savedTarget = w.Quiz.saveImageQuestion(null, "Test Image Quiz", dummyPuzzleQ);
     log("saveImageQuestion created", savedTarget && savedTarget.questions.some(q => q.text === "Diagrama prueba") ? "OK" : "FAIL");
+
+    w.Quiz.setTypeFilter("image_puzzle");
+    log("setTypeFilter getter/setter", w.Quiz.S.settings.typeFilter === "image_puzzle" ? "OK" : "FAIL");
+    w.Quiz.setTypeFilter("");
   }
 
   const errs = errors.filter(e => !/not implemented|Could not load|css/i.test(e));

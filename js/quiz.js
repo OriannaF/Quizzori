@@ -98,6 +98,7 @@ const Quiz = (() => {
     const modes = ["today", "random", "new", "failed", "all", "timed"];
     S.settings.mode = modes.includes(saved.mode) ? saved.mode : "today";
     S.settings.cat = typeof saved.cat === "string" ? saved.cat : "";
+    S.settings.typeFilter = typeof saved.typeFilter === "string" ? saved.typeFilter : "";
     const tm = parseInt(saved.timedMinutes, 10);
     S.settings.timedMinutes = isNaN(tm) || tm < 1 ? 40 : Math.min(300, tm);
     const ts = parseInt(saved.timedSize, 10);
@@ -223,6 +224,7 @@ const Quiz = (() => {
       points: S.settings.points,
       mode: S.settings.mode,
       cat: S.settings.cat,
+      typeFilter: S.settings.typeFilter,
       timedMinutes: S.settings.timedMinutes,
       timedSize: S.settings.timedSize
     });
@@ -259,6 +261,11 @@ const Quiz = (() => {
 
   function setCat(v) {
     S.settings.cat = String(v || "").trim();
+    persistSettings();
+  }
+
+  function setTypeFilter(v) {
+    S.settings.typeFilter = String(v || "").trim();
     persistSettings();
   }
 
@@ -302,6 +309,10 @@ const Quiz = (() => {
     const want = !isTimed ? String(S.settings.cat || "").trim() : "";
     if (want) {
       questions = questions.filter((q) => (q.category || "").trim() === want);
+    }
+    const wantType = !isTimed ? String(S.settings.typeFilter || "").trim() : "";
+    if (wantType) {
+      questions = questions.filter((q) => (q.type || "select") === wantType);
     }
     const sessionSize = isTimed ? (S.settings.timedSize || 50) : S.settings.size;
     buildFrom(() => Sched.buildByMode(questions, S.progress, S.settings.mode, sessionSize, undefined, S.settings.points));
@@ -749,7 +760,7 @@ const Quiz = (() => {
   return {
     S, loadCsv, tryLoadSaved, newSession, repeatSession, failedSession, toggle, setSlot, setFill, setOrder, moveOrderItem,
     isAnswered, answeredCount, submit, tryResume, resetProgress, reloadProgress,
-    persistSettings, setSize, setTimedSize, setPoints, setMode, setCat, setTimedMinutes, setExamIndex, setExamDate, setCatExamDate, quizDate, catDate,
+    persistSettings, setSize, setTimedSize, setPoints, setMode, setCat, setTypeFilter, setTimedMinutes, setExamIndex, setExamDate, setCatExamDate, quizDate, catDate,
     stats, failedCount, todayCount, newCount, scheduledByDay, questionsOnDay, scoreQuestion, scoreOrder, scoreImagePuzzle,
     setPuzzleSlot, loadCustoms, saveImageQuestion,
     selectQuestionnaire, examDateFor, setExamDateFor, statsFor, draftOf, resetProgressFor,

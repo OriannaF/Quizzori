@@ -647,6 +647,7 @@ h2 { font-size: 22px; font-weight: 700; margin: 0 0 8px; }
   margin-top: 4px;
 }
 .session-row .cat-sel,
+.session-row .type-sel,
 .session-row .time-sel { grid-column: 1 / -1; }
 @media (max-width: 720px) { .session-row { grid-template-columns: 1fr 1fr; } .session-row .play-fab { grid-column: auto; } }
 

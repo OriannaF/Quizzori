@@ -1,34 +1,34 @@
-const CACHE_NAME = 'studori-v64';
+const CACHE_NAME = 'studori-v65';
 const PRECACHE_URLS = [
   './',
   'index.html',
   'manifest.json',
   'css/style.css',
-  'css/style.css?v=64',
+  'css/style.css?v=65',
   'js/storage.js',
-  'js/storage.js?v=64',
+  'js/storage.js?v=65',
   'js/csv.js',
-  'js/csv.js?v=64',
+  'js/csv.js?v=65',
   'js/scheduler.js',
-  'js/scheduler.js?v=64',
+  'js/scheduler.js?v=65',
   'js/quiz.js',
-  'js/quiz.js?v=64',
+  'js/quiz.js?v=65',
   'js/game.js',
-  'js/game.js?v=64',
+  'js/game.js?v=65',
   'js/crossword.js',
-  'js/crossword.js?v=64',
+  'js/crossword.js?v=65',
   'js/image_quiz.js',
-  'js/image_quiz.js?v=64',
+  'js/image_quiz.js?v=65',
   'js/cloud.js',
-  'js/cloud.js?v=64',
+  'js/cloud.js?v=65',
   'js/ui.js',
-  'js/ui.js?v=64',
+  'js/ui.js?v=65',
   'data/cuestionario.csv',
-  'data/cuestionario.csv?v=64',
+  'data/cuestionario.csv?v=65',
   'data/cuestionario%20Burpleria.csv',
-  'data/cuestionario%20Burpleria.csv?v=64',
+  'data/cuestionario%20Burpleria.csv?v=65',
   'data/cuestionario%20Primer%20Parcial%202026.csv',
-  'data/cuestionario%20Primer%20Parcial%202026.csv?v=64'
+  'data/cuestionario%20Primer%20Parcial%202026.csv?v=65'
 ];
 
 self.addEventListener('install', (event) => {

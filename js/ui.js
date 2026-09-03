@@ -996,6 +996,39 @@
       cats.map((c) => `<option value="${esc(c)}" ${valid && c === cur ? "selected" : ""}>${esc(c)}</option>`).join("");
   }
 
+  const TYPE_LABELS = {
+    select: "Opción múltiple",
+    dropdown: "Desplegable / Relacionar",
+    fill: "Completar texto",
+    order: "Ordenar secuencia",
+    image_puzzle: "Imágenes con huecos"
+  };
+
+  function typeOptions(hash) {
+    let questions = [];
+    if (hash === "all") {
+      (Quiz.S.questionnaires || []).forEach((q) => { questions = questions.concat(q.questions || []); });
+    } else {
+      const qz = Quiz.S.questionnaires.find((x) => x.hash === hash);
+      if (!qz) return "";
+      questions = qz.questions || [];
+    }
+    const types = [];
+    questions.forEach((q) => {
+      const t = q.type || "select";
+      if (types.indexOf(t) === -1) types.push(t);
+    });
+    if (types.length <= 1) return "";
+    const cur = String(S().settings.typeFilter || "");
+    const valid = types.indexOf(cur) !== -1;
+    return `<option value="">Todos los tipos (${questions.length})</option>` +
+      types.map((t) => {
+        const count = questions.filter(q => (q.type || "select") === t).length;
+        const label = TYPE_LABELS[t] || t;
+        return `<option value="${t}" ${valid && t === cur ? "selected" : ""}>${esc(label)} (${count})</option>`;
+      }).join("");
+  }
+
   let timedExamState = null;
 
   function formatTimer(sec) {
@@ -1054,6 +1087,10 @@
     Quiz.selectQuestionnaire(hash);
     const modeSel = document.getElementById("sel-mode-" + hash);
     if (modeSel) Quiz.setMode(modeSel.value);
+    const catSel = document.getElementById("sel-cat-" + hash);
+    if (catSel) Quiz.setCat(catSel.value);
+    const typeSel = document.getElementById("sel-type-" + hash);
+    if (typeSel) Quiz.setTypeFilter(typeSel.value);
     const timeSel = document.getElementById("sel-time-" + hash);
     if (timeSel && timeSel.value) Quiz.setTimedMinutes(timeSel.value);
     const sizeSel = document.getElementById("sel-size-" + hash);
@@ -1063,6 +1100,11 @@
     }
     Quiz.setExamIndex(0);
     Quiz.newSession();
+    if (!Quiz.S.items.length) {
+      toast("No hay preguntas disponibles con estos filtros.");
+      refreshView();
+      return;
+    }
     if (Quiz.S.settings.mode === "timed") {
       const minutes = Quiz.S.settings.timedMinutes || 40;
       startTimer(minutes * 60);
@@ -1090,6 +1132,7 @@
     const modeSel = document.getElementById("sel-mode-" + hash);
     const timeSel = document.getElementById("sel-time-" + hash);
     const catSel = document.getElementById("sel-cat-" + hash);
+    const typeSel = document.getElementById("sel-type-" + hash);
     const sizeSel = document.getElementById("sel-size-" + hash);
     if (modeSel) {
       modeSel.addEventListener("change", (e) => {
@@ -1097,6 +1140,7 @@
         Quiz.setMode(e.target.value);
         if (timeSel) timeSel.style.display = isTimed ? "" : "none";
         if (catSel) catSel.style.display = isTimed ? "none" : "";
+        if (typeSel) typeSel.style.display = isTimed ? "none" : "";
         if (sizeSel) {
           sizeSel.value = isTimed ? String(S().settings.timedSize || 50) : String(S().settings.size || 20);
         }
@@ -1108,6 +1152,7 @@
       });
     }
     if (catSel) catSel.addEventListener("change", (e) => Quiz.setCat(e.target.value));
+    if (typeSel) typeSel.addEventListener("change", (e) => Quiz.setTypeFilter(e.target.value));
     if (sizeSel) {
       sizeSel.addEventListener("change", (e) => {
         if (S().settings.mode === "timed") Quiz.setTimedSize(e.target.value);
@@ -1170,6 +1215,12 @@
             return opts ? `
           <label class="field-label visually-hidden" for="sel-cat-${st.hash}">Categoría</label>
           <select class="input sm cat-sel" id="sel-cat-${st.hash}" ${isTimed ? 'style="display:none;"' : ""}>${opts}</select>` : "";
+          })()}
+          ${(() => {
+            const topts = typeOptions(st.hash);
+            return topts ? `
+          <label class="field-label visually-hidden" for="sel-type-${st.hash}">Tipo de pregunta</label>
+          <select class="input sm type-sel" id="sel-type-${st.hash}" title="Filtrar por tipo de pregunta" ${isTimed ? 'style="display:none;"' : ""}>${topts}</select>` : "";
           })()}
         </div>
         ${hasDraft ? `
@@ -1935,6 +1986,12 @@
               return opts ? `
             <label class="field-label visually-hidden" for="sel-cat-${st.hash}">Categoría</label>
             <select class="input sm cat-sel" id="sel-cat-${st.hash}" ${S().settings.mode === "timed" ? 'style="display:none;"' : ""}>${opts}</select>` : "";
+            })()}
+            ${(() => {
+              const topts = typeOptions(st.hash);
+              return topts ? `
+            <label class="field-label visually-hidden" for="sel-type-${st.hash}">Tipo de pregunta</label>
+            <select class="input sm type-sel" id="sel-type-${st.hash}" title="Filtrar por tipo de pregunta" ${S().settings.mode === "timed" ? 'style="display:none;"' : ""}>${topts}</select>` : "";
             })()}
           </div>
           ${Quiz.draftOf(st.hash) ? `
@@ -3472,6 +3529,11 @@
     const cat = String(Quiz.S.settings.cat || "").trim();
     if (cat) {
       const filtered = questions.filter((q) => (q.category || "").trim() === cat);
+      if (filtered.length) questions = filtered;
+    }
+    const wantType = String(Quiz.S.settings.typeFilter || "").trim();
+    if (wantType) {
+      const filtered = questions.filter((q) => (q.type || "select") === wantType);
       if (filtered.length) questions = filtered;
     }
     questions = window.Scheduler ? window.Scheduler.shuffle(questions.map((q) => q.id)).map((id) => qz.questions[id]) : questions;
