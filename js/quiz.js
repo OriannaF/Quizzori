@@ -60,6 +60,35 @@ const Quiz = (() => {
     return Math.round(s * 100000) / 100000;
   }
 
+  function scoreImagePuzzle(q, placements) {
+    if (!q.slots || !q.slots.length) return 0;
+    const unit = 1 / q.slots.length;
+    let s = 0;
+    for (const slot of q.slots) {
+      if (placements && placements[slot.id] === slot.id) {
+        s += unit;
+      } else if (placements && placements[slot.id]) {
+        s -= unit;
+      }
+    }
+    return Math.round(s * 100000) / 100000;
+  }
+
+  function setPuzzleSlot(qid, slotId, pieceId) {
+    if (!S.answers[qid] || typeof S.answers[qid] !== "object") {
+      S.answers[qid] = {};
+    }
+    Object.keys(S.answers[qid]).forEach((s) => {
+      if (S.answers[qid][s] === pieceId) delete S.answers[qid][s];
+    });
+    if (pieceId) {
+      S.answers[qid][slotId] = pieceId;
+    } else {
+      delete S.answers[qid][slotId];
+    }
+    saveDraft();
+  }
+
   function loadSettings() {
     const saved = Store.loadSettings();
     const size = parseInt(saved.sessionSize, 10);
@@ -381,6 +410,18 @@ const Quiz = (() => {
         marked[state].push(q.id);
         return { q, optOrder: [], userOrder, score, state };
       }
+      if (q.type === "image_puzzle") {
+        const placements = S.answers[q.id] || {};
+        const rawScore = scoreImagePuzzle(q, placements);
+        const score = Math.round(rawScore * pts * 100000) / 100000;
+        const full = score + 1e-9 >= pts;
+        S.progress[q.id] = Sched.update(card, score, full, qCtx);
+        total += score;
+        const state = full ? "correct" : (score > 1e-9 ? "partial" : "failed");
+        marked[state].push(q.id);
+        return { q, optOrder: [], placements, score, state };
+      }
+
       const dispChecked = (S.answers[q.id] || []).slice().sort((a, b) => a - b);
       const origChecked = dispChecked.map((d) => it.optOrder[d]);
       const score = scoreQuestion(q, origChecked);
@@ -657,11 +698,60 @@ const Quiz = (() => {
     });
   }
 
+  function loadCustoms() {
+    if (!Store || typeof Store.loadCustomQuestionnaires !== "function") return;
+    const list = Store.loadCustomQuestionnaires();
+    if (!Array.isArray(list)) return;
+    list.forEach((cq) => {
+      if (!cq || !cq.hash) return;
+      const existing = S.questionnaires.find((x) => x.hash === cq.hash);
+      if (existing) {
+        (cq.questions || []).forEach((q) => {
+          if (!existing.questions.some((eq) => eq.id === q.id)) {
+            existing.questions.push(q);
+          }
+        });
+      } else {
+        S.questionnaires.push({
+          hash: cq.hash,
+          name: cq.name || "Cuestionario Visual",
+          questions: cq.questions || []
+        });
+      }
+    });
+  }
+
+  function saveImageQuestion(questionnaireHash, newQuestionnaireName, question) {
+    loadCustoms();
+    let target = S.questionnaires.find((q) => q.hash === questionnaireHash);
+    if (!target) {
+      const name = newQuestionnaireName || "Cuestionario con Imágenes";
+      const hash = "custom_" + Store.hash(name + "_" + Date.now());
+      target = { hash, name, questions: [] };
+      S.questionnaires.push(target);
+    }
+    question.id = target.questions.length;
+    target.questions.push(question);
+
+    const customs = (Store.loadCustomQuestionnaires() || []).slice();
+    const idx = customs.findIndex((c) => c.hash === target.hash);
+    if (idx >= 0) {
+      customs[idx] = target;
+    } else {
+      customs.push(target);
+    }
+    Store.saveCustomQuestionnaires(customs);
+    return target;
+  }
+
+  loadCustoms();
+
   return {
     S, loadCsv, tryLoadSaved, newSession, repeatSession, failedSession, toggle, setSlot, setFill, setOrder, moveOrderItem,
     isAnswered, answeredCount, submit, tryResume, resetProgress, reloadProgress,
     persistSettings, setSize, setTimedSize, setPoints, setMode, setCat, setTimedMinutes, setExamIndex, setExamDate, setCatExamDate, quizDate, catDate,
-    stats, failedCount, todayCount, newCount, scheduledByDay, questionsOnDay, scoreQuestion, scoreOrder,
+    stats, failedCount, todayCount, newCount, scheduledByDay, questionsOnDay, scoreQuestion, scoreOrder, scoreImagePuzzle,
+    setPuzzleSlot, loadCustoms, saveImageQuestion,
     selectQuestionnaire, examDateFor, setExamDateFor, statsFor, draftOf, resetProgressFor,
     scheduledByDayFor, questionsOnDayFor,
     materiaCutoffFor, courseExamsMap, courseExamsHoraMap, courseExamFor, setCourseExamFor, setCourseExamHoraFor

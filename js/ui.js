@@ -594,6 +594,7 @@
       loadOne("data/cuestionario Burpleria.csv", "Burpleria"),
       loadOne("data/cuestionario Primer Parcial 2026.csv", "Primer Parcial 2026")
     ]).then(([r1, r2, r3]) => {
+      if (typeof Quiz.loadCustoms === "function") Quiz.loadCustoms();
       if (S().questionnaires.length > 0) return { ok: true, loaded: true };
       if (r1.errors) return { ok: false, errors: r1.errors };
       if (r2.errors) return { ok: false, errors: r2.errors };
@@ -702,6 +703,20 @@
   const RENDERERS = {};
 
   function navigate(v) {
+    if (v === "creador") {
+      currentView = "creador";
+      paintNav();
+      if (window.ImageQuiz && typeof window.ImageQuiz.renderCreador === "function") {
+        window.ImageQuiz.renderCreador();
+      } else if (typeof RENDERERS.creador === "function") {
+        RENDERERS.creador();
+      } else {
+        const app = document.getElementById("app");
+        if (app) app.innerHTML = `<div class="card p-xl tc text-muted">Cargando creador…</div>`;
+      }
+      window.scrollTo(0, 0);
+      return;
+    }
     const r = RENDERERS[v];
     if (!r) return;
     currentView = v;
@@ -2338,6 +2353,15 @@
             <div>Arrastrá el CSV acá o hacé clic para elegirlo — después elegís a qué materia pertenece</div>
           </div>
           <input type="file" id="file2" accept=".csv,text/csv,text/plain" hidden>
+          <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <div>
+              <span class="mono-label"><b>¿Querés crear preguntas con imágenes recortables?</b></span>
+              <p class="muted small" style="margin:0;">Subí una foto o diagrama, trazá los huecos y armá preguntas drag & drop.</p>
+            </div>
+            <button class="btn sm primary" id="btn-open-creador-cursos" type="button">
+              <span class="material-symbols-outlined">crop</span> Abrir Creador de Imágenes
+            </button>
+          </div>
         </div>
       </section>
       <section class="home-section">
@@ -2372,6 +2396,8 @@
       if (document.getElementById("btn-start-" + qq.hash)) bindExamCard(qq.hash, qq);
     });
     bindUpload("dropzone2", "file2");
+    const btnOpenCr = document.getElementById("btn-open-creador-cursos");
+    if (btnOpenCr) btnOpenCr.addEventListener("click", () => navigate("creador"));
     const fc = document.getElementById("fechas-cursos");
     if (fc) {
       fc.innerHTML = fechasBoxHTML("cur");
@@ -2852,6 +2878,7 @@
   RENDERERS.inicio = renderHome;
   RENDERERS.cursos = renderCursos;
   RENDERERS.juegos = renderJuegos;
+  RENDERERS.creador = () => { if (window.ImageQuiz) window.ImageQuiz.renderCreador(); };
 
   const isoOf = (y, m, d) => new Date(y, m, d, 12).toISOString().slice(0, 10);
 
@@ -2906,6 +2933,8 @@
               <div class="muted small" style="margin-bottom:8px;">Arrastrá o usá las flechas para ordenar los elementos de arriba a abajo (1 = primero):</div>
               <div class="order-list" id="order-list-${q.id}" data-q="${q.id}">${itemsHTML}</div>`;
           })()
+          : q.type === "image_puzzle"
+            ? (window.ImageQuiz ? window.ImageQuiz.renderCardHTML(q, it) : `<div class="qtext">${rich(q.text)}</div>`)
           : (() => {
         const checked = S().answers[q.id] || [];
         const opts = it.optOrder.map((orig, disp) => {
@@ -2922,7 +2951,7 @@
       <div class="qhead">
         <span class="qnum">${isExam ? `Pregunta ${i + 1}` : i + 1}<span class="muted">${isExam ? ` de ${n}` : `/${n}`}</span></span>
         ${q.category ? `<span class="chip">${esc(q.category)}</span>` : ""}
-        ${q.type === "dropdown" ? `<span class="chip">dropdown</span>` : q.type === "fill" ? `<span class="chip">rellenar</span>` : q.type === "order" ? `<span class="chip">ordenar</span>` : ""}
+        ${q.type === "dropdown" ? `<span class="chip">dropdown</span>` : q.type === "fill" ? `<span class="chip">rellenar</span>` : q.type === "order" ? `<span class="chip">ordenar</span>` : q.type === "image_puzzle" ? `<span class="chip">imagen</span>` : ""}
         <span class="chip warn" ${answeredNow ? "style='display:none'" : ""}>sin responder</span>
       </div>
       ${body}
@@ -3246,6 +3275,10 @@
         if (!isExam && Quiz.isAnswered(qid)) scheduleAdvance(qid, 0);
       });
     });
+
+    if (window.ImageQuiz && typeof window.ImageQuiz.bindEvents === "function") {
+      window.ImageQuiz.bindEvents();
+    }
   }
 
   function scrollToScore() {
@@ -3351,6 +3384,8 @@
                 </div>`;
               }).join("")}</div>`;
             })()
+            : d.q.type === "image_puzzle"
+              ? (window.ImageQuiz ? window.ImageQuiz.renderResultHTML(d) : "")
           : d.optOrder.map((orig, disp) => {
           const isC = d.q.correct.indexOf(orig) >= 0;
           const was = d.dispChecked.indexOf(disp) >= 0;
@@ -3692,5 +3727,5 @@
     }
   });
 
-  window.UI = { init, startFlashcards };
+  window.UI = { init, startFlashcards, view, esc, rich, toast, navigate, renderQuiz };
 })();

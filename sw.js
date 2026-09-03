@@ -1,32 +1,34 @@
-const CACHE_NAME = 'studori-v62';
+const CACHE_NAME = 'studori-v64';
 const PRECACHE_URLS = [
   './',
   'index.html',
   'manifest.json',
   'css/style.css',
-  'css/style.css?v=62',
+  'css/style.css?v=64',
   'js/storage.js',
-  'js/storage.js?v=62',
+  'js/storage.js?v=64',
   'js/csv.js',
-  'js/csv.js?v=62',
+  'js/csv.js?v=64',
   'js/scheduler.js',
-  'js/scheduler.js?v=62',
+  'js/scheduler.js?v=64',
   'js/quiz.js',
-  'js/quiz.js?v=62',
+  'js/quiz.js?v=64',
   'js/game.js',
-  'js/game.js?v=62',
+  'js/game.js?v=64',
   'js/crossword.js',
-  'js/crossword.js?v=62',
+  'js/crossword.js?v=64',
+  'js/image_quiz.js',
+  'js/image_quiz.js?v=64',
   'js/cloud.js',
-  'js/cloud.js?v=62',
+  'js/cloud.js?v=64',
   'js/ui.js',
-  'js/ui.js?v=62',
+  'js/ui.js?v=64',
   'data/cuestionario.csv',
-  'data/cuestionario.csv?v=62',
+  'data/cuestionario.csv?v=64',
   'data/cuestionario%20Burpleria.csv',
-  'data/cuestionario%20Burpleria.csv?v=62',
+  'data/cuestionario%20Burpleria.csv?v=64',
   'data/cuestionario%20Primer%20Parcial%202026.csv',
-  'data/cuestionario%20Primer%20Parcial%202026.csv?v=62'
+  'data/cuestionario%20Primer%20Parcial%202026.csv?v=64'
 ];
 
 self.addEventListener('install', (event) => {
@@ -105,9 +107,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // App static assets & CSV data (Stale-While-Revalidate + Cache fallback with ignoreSearch)
+  // App static assets & CSV data (match exact URL first including version, then fallback)
   event.respondWith(
-    caches.match(req, { ignoreSearch: true }).then((cachedResponse) => {
+    caches.match(req).then((cachedResponse) => {
       const fetchPromise = fetch(req)
         .then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200 && (networkResponse.type === 'basic' || networkResponse.type === 'cors')) {
@@ -116,7 +118,7 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse;
         })
-        .catch(() => cachedResponse);
+        .catch(() => cachedResponse || caches.match(req, { ignoreSearch: true }));
 
       return cachedResponse || fetchPromise;
     })

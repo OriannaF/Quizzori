@@ -253,6 +253,25 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       click2("#btn-home");
       await sleep(50);
     }
+
+    // ImagePuzzle checks
+    const dummyPuzzleQ = {
+      type: "image_puzzle",
+      text: "Diagrama prueba",
+      slots: [
+        { id: "s1", x: 10, y: 10, width: 20, height: 20, imageCropUrl: "data:image/png;base64,123" },
+        { id: "s2", x: 50, y: 50, width: 20, height: 20, imageCropUrl: "data:image/png;base64,456" }
+      ]
+    };
+    const perfectScore = w.Quiz.scoreImagePuzzle(dummyPuzzleQ, { s1: "s1", s2: "s2" });
+    const partialScore = w.Quiz.scoreImagePuzzle(dummyPuzzleQ, { s1: "s1", s2: "wrong" });
+    const zeroScore = w.Quiz.scoreImagePuzzle(dummyPuzzleQ, {});
+    log("image puzzle perfect score", perfectScore === 1 ? "OK" : "FAIL");
+    log("image puzzle partial score", partialScore === 0 ? "OK" : "FAIL");
+    log("image puzzle zero score", zeroScore === 0 ? "OK" : "FAIL");
+
+    const savedTarget = w.Quiz.saveImageQuestion(null, "Test Image Quiz", dummyPuzzleQ);
+    log("saveImageQuestion created", savedTarget && savedTarget.questions.some(q => q.text === "Diagrama prueba") ? "OK" : "FAIL");
   }
 
   const errs = errors.filter(e => !/not implemented|Could not load|css/i.test(e));

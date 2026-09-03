@@ -26,7 +26,7 @@ const QuizStore = (() => {
     } catch (e) { return def; }
   };
 
-  const EXCLUDE_SYNC = ["quiz.theme", "quiz.pomo", "quiz.keytimes"];
+  const EXCLUDE_SYNC = ["quiz.theme", "quiz.pomo", "quiz.keytimes", "quiz.custom.questionnaires"];
   const isSyncKey = (k) =>
     String(k).indexOf("quiz.") === 0 &&
     EXCLUDE_SYNC.indexOf(k) < 0 &&
@@ -84,6 +84,9 @@ const QuizStore = (() => {
 
   function loadGameStats() { return get("quiz.game.connections", {}); }
   function saveGameStats(s) { set("quiz.game.connections", s && typeof s === "object" ? s : {}); }
+
+  function loadCustomQuestionnaires() { return get("quiz.custom.questionnaires", []); }
+  function saveCustomQuestionnaires(list) { set("quiz.custom.questionnaires", Array.isArray(list) ? list : []); }
 
   function snapshot() {
     const kv = {}, times = {};
@@ -182,6 +185,7 @@ const QuizStore = (() => {
     loadCourseExamHoras, saveCourseExamHoras,
     loadTasks, saveTasks,
     loadGameStats, saveGameStats,
+    loadCustomQuestionnaires, saveCustomQuestionnaires,
     snapshot, restore, clearAll, onChange,
     exportData, importData
   };
