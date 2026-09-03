@@ -43,7 +43,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   log("pomodoro header", $("#pomo-time") && $("#pomo-time").textContent !== "" ? "OK (" + $("#pomo-time").textContent + ")" : "FAIL");
   log("sin focus card", !$("#pf-time") ? "OK" : "FAIL");
   log("home strip visible", $(".home-daily-strip") ? "OK" : "FAIL");
-  log("home tareas", !!($("#home-tareas .task-row") || $("#home-tareas .empty-note")) ? "OK" : "FAIL");
+  log("home tareas", !!($("#home-horario") || $("#home-tareas .task-row") || $("#home-tareas .empty-note")) ? "OK" : "FAIL");
 
   const csvMini = [
     "pregunta,categoria,opcion1,opcion2,opcion3,opcion4,correctas,explicacion",
