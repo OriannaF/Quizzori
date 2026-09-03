@@ -790,6 +790,48 @@ const Quiz = (() => {
     return target;
   }
 
+  // Permite marcar manualmente una pregunta de tipo fill como correcta desde la review
+  function overrideFillResult(qid) {
+    if (!S.results) return false;
+    const detail = S.results.detail;
+    const d = detail.find((x) => x.q.id === qid);
+    if (!d || d.q.type !== "fill") return false;
+
+    const pts = S.results.pts;
+    const prevState = d.state;
+
+    // Actualizar el detalle
+    d.score = pts;
+    d.state = "correct";
+    d.manualOverride = true;
+
+    // Actualizar marked arrays
+    const removFrom = (arr) => {
+      const idx = arr.indexOf(qid);
+      if (idx >= 0) arr.splice(idx, 1);
+    };
+    removFrom(S.results.marked.failed);
+    removFrom(S.results.marked.partial);
+    removFrom(S.results.marked.correct);
+    S.results.marked.correct.push(qid);
+
+    // Actualizar total
+    const prevScore = prevState === "correct" ? pts : (prevState === "partial" ? pts * 0.5 : -pts);
+    S.results.total = S.results.total - prevScore + pts;
+
+    // Actualizar progreso
+    const qCtx = S.currentHash || S.hash;
+    if (S.progress[qid]) {
+      S.progress[qid].last = pts;
+      S.progress[qid].correct = (S.progress[qid].correct || 0) + 1;
+    }
+    Store.saveProgress(qCtx, S.progress);
+    if (hasWindow && window.Cloud && typeof window.Cloud.flush === "function") {
+      window.Cloud.flush();
+    }
+    return true;
+  }
+
   loadCustoms();
 
   return {
@@ -800,7 +842,8 @@ const Quiz = (() => {
     setPuzzleSlot, loadCustoms, loadRepoImageQuestions, saveImageQuestion,
     selectQuestionnaire, examDateFor, setExamDateFor, statsFor, draftOf, resetProgressFor,
     scheduledByDayFor, questionsOnDayFor,
-    materiaCutoffFor, courseExamsMap, courseExamsHoraMap, courseExamFor, setCourseExamFor, setCourseExamHoraFor
+    materiaCutoffFor, courseExamsMap, courseExamsHoraMap, courseExamFor, setCourseExamFor, setCourseExamHoraFor,
+    overrideFillResult
   };
 })();
 

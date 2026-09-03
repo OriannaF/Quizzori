@@ -579,7 +579,7 @@
 
   function loadSource() {
     const loadOne = (url, name) =>
-      fetch(`${url}?v=70`)
+      fetch(`${url}?v=71`)
         .then((r) => (r.ok ? r.text() : Promise.reject(new Error("no file"))))
         .then((txt) => {
           if (!txt.trim()) return { ok: false, skipped: true };
@@ -590,7 +590,7 @@
         .catch(() => ({ ok: false, skipped: true }));
 
     const loadImageQuestions = () =>
-      fetch("data/image_questions.json?v=70")
+      fetch("data/image_questions.json?v=71")
         .then((r) => (r.ok ? r.json() : []))
         .then((list) => {
           if (Array.isArray(list) && list.length && typeof Quiz.loadRepoImageQuestions === "function") {
@@ -3423,16 +3423,23 @@
         : d.q.type === "fill"
           ? (() => {
             const has = !!d.fillAnswer;
-            const isC = d.score > 0 && has;
+            const isC = d.state === "correct";
             const oCls = isC ? "correct" : has ? "wrong" : "missed";
             const flag = isC ? "✓" : has ? "✗" : "sin responder";
-            return `<div class="opt ${oCls}" style="cursor:default">
+            const overrideBtn = (!isC && has)
+              ? `<button class="btn sm fill-override-btn" data-qid="${d.q.id}" style="margin-top:6px; font-size:12px;" title="Marcar como correcta manualmente">
+                  <span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle;">check_circle</span>
+                  Marcar como correcta
+                </button>`
+              : (d.manualOverride ? `<span class="chip" style="font-size:11px; margin-top:4px; display:inline-block;">✓ Marcada manualmente</span>` : "");
+            return `<div class="opt ${oCls}" style="cursor:default;" id="fill-opt-${d.q.id}">
               <span class="alpha">1</span>
               <span>
                 <b>Tu respuesta:</b> ${has ? esc(d.fillAnswer) : "—"}<br>
                 <span class="muted small">Correcta:</span> ${d.q.correct.map((c) => esc(c)).join(" / ")}
+                ${overrideBtn}
               </span>
-              <span class="opt-flag">${flag}</span>
+              <span class="opt-flag" id="fill-flag-${d.q.id}">${flag}</span>
             </div>`;
           })()
           : d.q.type === "order"
@@ -3525,6 +3532,52 @@
       const open = wrap.classList.toggle("open");
       b.querySelector(".et-lab").textContent = open ? "Ver menos" : "Ver más";
     }));
+
+    // Marcar pregunta fill como correcta manualmente
+    document.querySelectorAll(".fill-override-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const qid = parseInt(btn.dataset.qid, 10);
+        const ok = Quiz.overrideFillResult(qid);
+        if (!ok) return;
+
+        // Actualizar el bloque visualmente sin re-renderizar todo
+        const optEl = document.getElementById("fill-opt-" + qid);
+        const flagEl = document.getElementById("fill-flag-" + qid);
+        if (optEl) {
+          optEl.classList.remove("wrong", "missed");
+          optEl.classList.add("correct");
+        }
+        if (flagEl) flagEl.textContent = "✓";
+        btn.replaceWith((() => {
+          const span = document.createElement("span");
+          span.className = "chip";
+          span.style.cssText = "font-size:11px; margin-top:4px; display:inline-block;";
+          span.textContent = "✓ Marcada manualmente";
+          return span;
+        })());
+
+        // Actualizar puntaje y % en el hero
+        const res = Quiz.S.results;
+        if (!res) return;
+        const pct = res.max ? Math.round((res.total / res.max) * 100) : 0;
+        const scoreEl = document.getElementById("result-score");
+        const pctEl = document.getElementById("result-pct");
+        if (scoreEl) scoreEl.innerHTML = `${fmt(res.total)} <span class="muted">/ ${fmt(res.max)} puntos</span>`;
+        if (pctEl) {
+          pctEl.textContent = pct + " %";
+          pctEl.className = `pct ${pct === 100 ? "ok-c" : pct >= 60 ? "" : "bad-c"}`;
+        }
+
+        // Actualizar badge de la qcard
+        const qcard = btn.closest(".qcard");
+        if (qcard) {
+          const badge = qcard.querySelector(".badge");
+          if (badge) { badge.className = "badge ok"; badge.textContent = "Correcta"; }
+          const scoreChip = qcard.querySelector(".score-chip");
+          if (scoreChip) scoreChip.textContent = fmt(res.pts) + " p";
+        }
+      });
+    });
   }
 
   let flashState = null;
