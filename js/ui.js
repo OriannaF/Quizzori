@@ -63,8 +63,8 @@
     { mat: "Planificacion", desc: "Primer parcial teorico-practico", tipo: "Parcial", fecha: "22/09/2026" },
     { mat: "Probabilidad y Estadistica", desc: "Primer Recuperatorio", tipo: "Recuperatorio", fecha: "25/09/2026" },
     { mat: "AM II", desc: "", tipo: "Parcial Práctico", fecha: "29/09/2026" },
-    { mat: "Diseño de sistemas", desc: "IE3 Práctico", tipo: "Parcial Práctico", fecha: "07/10/2026" },
     { mat: "AM II", desc: "", tipo: "Parcial Práctico", fecha: "20/10/2026" },
+    { mat: "Diseño de sistemas", desc: "IE3 Práctico", tipo: "Parcial Práctico", fecha: "22/10/2026" },
     { mat: "Probabilidad y Estadistica", desc: "Segunda instancia de evaluación", tipo: "Parcial", fecha: "30/10/2026" },
     { mat: "AM II", desc: "", tipo: "Recuperatorio", fecha: "01/11/2026" },
     { mat: "Diseño de sistemas", desc: "IE3 Recu practica", tipo: "Recuperatorio", fecha: "04/11/2026" },
@@ -506,9 +506,9 @@
         btnForce.disabled = true;
         btnForce.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px; animation:spin 1s linear infinite;">sync</span> Guardando cuestionarios…`;
         const urls = [
-          "data/cuestionario.csv?v=61",
-          "data/cuestionario%20Burpleria.csv?v=61",
-          "data/cuestionario%20Primer%20Parcial%202026.csv?v=61"
+          "data/cuestionario.csv?v=62",
+          "data/cuestionario%20Burpleria.csv?v=62",
+          "data/cuestionario%20Primer%20Parcial%202026.csv?v=62"
         ];
         Promise.all(
           urls.map((u) => fetch(u).catch(() => null))
@@ -579,7 +579,7 @@
 
   function loadSource() {
     const loadOne = (url, name) =>
-      fetch(`${url}?v=61`)
+      fetch(`${url}?v=62`)
         .then((r) => (r.ok ? r.text() : Promise.reject(new Error("no file"))))
         .then((txt) => {
           if (!txt.trim()) return { ok: false, skipped: true };
