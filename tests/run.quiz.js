@@ -276,6 +276,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     w.Quiz.setTypeFilter("image_puzzle");
     log("setTypeFilter getter/setter", w.Quiz.S.settings.typeFilter === "image_puzzle" ? "OK" : "FAIL");
     w.Quiz.setTypeFilter("");
+
+    w.Quiz.loadRepoImageQuestions([{
+      name: "Repo Quiz Test",
+      questions: [{ type: "image_puzzle", text: "Repo Pregunta Test", slots: [] }]
+    }]);
+    const foundRepoQ = w.Quiz.S.questionnaires.some(qz => qz.name === "Repo Quiz Test" && qz.questions.some(q => q.text === "Repo Pregunta Test"));
+    log("loadRepoImageQuestions merged", foundRepoQ ? "OK" : "FAIL");
   }
 
   const errs = errors.filter(e => !/not implemented|Could not load|css/i.test(e));

@@ -171,11 +171,21 @@
       view(`
         <div class="creador-wrap">
           <div class="card creador-head-card">
-            <div class="sec-head">
-              <span class="material-symbols-outlined" style="font-size:26px;">crop</span>
-              <div>
-                <h2>Creador de Preguntas con Imagen y Huecos</h2>
-                <p class="muted small sub">Recortá huecos sobre cualquier imagen para que los alumnos arrastren las porciones correspondientes.</p>
+            <div class="sec-head" style="justify-content:space-between; flex-wrap:wrap; gap:12px;">
+              <div style="display:flex; align-items:center; gap:10px;">
+                <span class="material-symbols-outlined" style="font-size:26px;">crop</span>
+                <div>
+                  <h2>Creador de Preguntas con Imagen y Huecos</h2>
+                  <p class="muted small sub">Recortá huecos sobre cualquier imagen para que los alumnos arrastren las porciones correspondientes.</p>
+                </div>
+              </div>
+              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <button class="btn sm secondary" id="btn-cr-sync-repo" type="button" title="Sincronizar preguntas de este navegador con el archivo del repositorio">
+                  <span class="material-symbols-outlined" style="font-size:18px;">cloud_sync</span> Sincronizar con repo
+                </button>
+                <button class="btn sm secondary" id="btn-cr-export-json" type="button" title="Descargar archivo JSON de preguntas">
+                  <span class="material-symbols-outlined" style="font-size:18px;">download</span> Exportar JSON
+                </button>
               </div>
             </div>
           </div>
@@ -318,6 +328,45 @@
     const saveBtn = document.getElementById("btn-cr-save");
     if (saveBtn) {
       saveBtn.addEventListener("click", handleSaveQuestion);
+    }
+
+    const syncBtn = document.getElementById("btn-cr-sync-repo");
+    if (syncBtn) {
+      syncBtn.addEventListener("click", () => {
+        const customs = window.Store && typeof window.Store.loadCustomQuestionnaires === "function" ? window.Store.loadCustomQuestionnaires() : [];
+        if (!customs || !customs.length) {
+          toast("No hay preguntas creadas en este navegador todavía.");
+          return;
+        }
+        syncBtn.disabled = true;
+        fetch("/api/sync-repo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(customs)
+        })
+          .then((r) => (r.ok ? r.json() : Promise.reject()))
+          .then((data) => {
+            syncBtn.disabled = false;
+            toast(`¡Sincronizadas ${customs.length} lista(s) en data/image_questions.json!`);
+          })
+          .catch(() => {
+            syncBtn.disabled = false;
+            toast("No se pudo conectar con el servidor local para guardar en el archivo.");
+          });
+      });
+    }
+
+    const exportBtn = document.getElementById("btn-cr-export-json");
+    if (exportBtn) {
+      exportBtn.addEventListener("click", () => {
+        const customs = window.Store && typeof window.Store.loadCustomQuestionnaires === "function" ? window.Store.loadCustomQuestionnaires() : [];
+        const blob = new Blob([JSON.stringify(customs, null, 2)], { type: "application/json" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "image_questions.json";
+        a.click();
+        URL.revokeObjectURL(a.href);
+      });
     }
 
     setupCanvasDrawing();
@@ -588,7 +637,27 @@
     const targetHash = targetVal === "__new__" ? null : targetVal;
     const targetQz = window.Quiz.saveImageQuestion(targetHash, newName, questionObj);
 
-    toast(`¡Pregunta guardada en "${targetQz.name}"!`);
+    // Intentar persistir automáticamente al endpoint local de data/image_questions.json
+    fetch("/api/save-repo-question", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        hash: targetQz.hash,
+        name: targetQz.name,
+        question: questionObj
+      })
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((res) => {
+        if (res && res.ok) {
+          toast(`¡Guardada en "${targetQz.name}" y añadida a data/image_questions.json!`);
+        } else {
+          toast(`¡Pregunta guardada en "${targetQz.name}"!`);
+        }
+      })
+      .catch(() => {
+        toast(`¡Pregunta guardada en "${targetQz.name}"!`);
+      });
 
     // Show prompt / confirmation overlay to play or continue
     setTimeout(() => {

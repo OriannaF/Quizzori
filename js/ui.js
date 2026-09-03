@@ -579,7 +579,7 @@
 
   function loadSource() {
     const loadOne = (url, name) =>
-      fetch(`${url}?v=62`)
+      fetch(`${url}?v=66`)
         .then((r) => (r.ok ? r.text() : Promise.reject(new Error("no file"))))
         .then((txt) => {
           if (!txt.trim()) return { ok: false, skipped: true };
@@ -589,10 +589,21 @@
         })
         .catch(() => ({ ok: false, skipped: true }));
 
+    const loadImageQuestions = () =>
+      fetch("data/image_questions.json?v=66")
+        .then((r) => (r.ok ? r.json() : []))
+        .then((list) => {
+          if (Array.isArray(list) && list.length && typeof Quiz.loadRepoImageQuestions === "function") {
+            Quiz.loadRepoImageQuestions(list);
+          }
+        })
+        .catch(() => {});
+
     return Promise.all([
       loadOne("data/cuestionario.csv", "Final ADS"),
       loadOne("data/cuestionario Burpleria.csv", "Burpleria"),
-      loadOne("data/cuestionario Primer Parcial 2026.csv", "Primer Parcial 2026")
+      loadOne("data/cuestionario Primer Parcial 2026.csv", "Primer Parcial 2026"),
+      loadImageQuestions()
     ]).then(([r1, r2, r3]) => {
       if (typeof Quiz.loadCustoms === "function") Quiz.loadCustoms();
       if (S().questionnaires.length > 0) return { ok: true, loaded: true };

@@ -732,6 +732,34 @@ const Quiz = (() => {
     });
   }
 
+  function loadRepoImageQuestions(list) {
+    if (!Array.isArray(list)) return;
+    list.forEach((repoQuiz) => {
+      if (!repoQuiz || !repoQuiz.name) return;
+      let target = S.questionnaires.find(
+        (q) => (repoQuiz.hash && q.hash === repoQuiz.hash) || q.name.trim().toLowerCase() === repoQuiz.name.trim().toLowerCase()
+      );
+      if (!target) {
+        target = {
+          hash: repoQuiz.hash || ("repo_" + Store.hash(repoQuiz.name)),
+          name: repoQuiz.name,
+          questions: []
+        };
+        S.questionnaires.push(target);
+      }
+      (repoQuiz.questions || []).forEach((q) => {
+        const exists = target.questions.some(
+          (eq) => eq.text === q.text && eq.type === q.type
+        );
+        if (!exists) {
+          const newQ = Object.assign({}, q);
+          newQ.id = target.questions.length;
+          target.questions.push(newQ);
+        }
+      });
+    });
+  }
+
   function saveImageQuestion(questionnaireHash, newQuestionnaireName, question) {
     loadCustoms();
     let target = S.questionnaires.find((q) => q.hash === questionnaireHash);
@@ -762,7 +790,7 @@ const Quiz = (() => {
     isAnswered, answeredCount, submit, tryResume, resetProgress, reloadProgress,
     persistSettings, setSize, setTimedSize, setPoints, setMode, setCat, setTypeFilter, setTimedMinutes, setExamIndex, setExamDate, setCatExamDate, quizDate, catDate,
     stats, failedCount, todayCount, newCount, scheduledByDay, questionsOnDay, scoreQuestion, scoreOrder, scoreImagePuzzle,
-    setPuzzleSlot, loadCustoms, saveImageQuestion,
+    setPuzzleSlot, loadCustoms, loadRepoImageQuestions, saveImageQuestion,
     selectQuestionnaire, examDateFor, setExamDateFor, statsFor, draftOf, resetProgressFor,
     scheduledByDayFor, questionsOnDayFor,
     materiaCutoffFor, courseExamsMap, courseExamsHoraMap, courseExamFor, setCourseExamFor, setCourseExamHoraFor
