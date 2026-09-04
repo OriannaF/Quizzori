@@ -1830,6 +1830,107 @@ html.light .mat-thumb { box-shadow: inset 0 2px 12px rgba(35, 44, 73, 0.08); }
   .hg-side .next-evals, .hg-side .tasks-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
   .hg-side .widget-head, .hg-side .sec-head-row, .hg-side .task-add { flex-shrink: 0; }
 }
+#home-horario .panel-sec {
+  padding: 16px;
+  overflow: hidden;
+}
+#home-horario .sched-card {
+  border-radius: 8px;
+  padding: 8px 10px 8px 14px;
+  font-size: 13px;
+}
+#home-horario .sched-card p {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+/* Widget horario en home */
+.home-horario-widget { padding: 16px; }
+.home-sched-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.home-sched-row {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  min-width: 0;
+}
+.home-sched-bar {
+  width: 4px;
+  flex-shrink: 0;
+  background: var(--mc, var(--accent));
+}
+.home-sched-body {
+  padding: 7px 10px 7px 0;
+  min-width: 0;
+  flex: 1;
+}
+.home-sched-time {
+  font-size: 10.5px;
+  font-family: "JetBrains Mono", monospace;
+  color: var(--accent-soft);
+  margin-bottom: 2px;
+}
+.home-sched-mat {
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.home-sched-com {
+  font-size: 11px;
+  color: var(--muted);
+}
+.home-horario-divider {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.home-exams-list { display: flex; flex-direction: column; }
+.home-exam-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  min-width: 0;
+}
+.home-exam-row:last-child { border-bottom: none; }
+.home-exam-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.home-exam-info {
+  flex: 1;
+  min-width: 0;
+}
+.home-exam-mat {
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.home-exam-sub {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.home-exam-pill { font-size: 10px; flex-shrink: 0; }
 .home-bottom {
   display: grid;
   grid-template-columns: 1fr;

@@ -579,7 +579,7 @@
 
   function loadSource() {
     const loadOne = (url, name) =>
-      fetch(`${url}?v=73`)
+      fetch(`${url}?v=74`)
         .then((r) => (r.ok ? r.text() : Promise.reject(new Error("no file"))))
         .then((txt) => {
           if (!txt.trim()) return { ok: false, skipped: true };
@@ -590,7 +590,7 @@
         .catch(() => ({ ok: false, skipped: true }));
 
     const loadImageQuestions = () =>
-      fetch("data/image_questions.json?v=73")
+      fetch("data/image_questions.json?v=74")
         .then((r) => (r.ok ? r.json() : []))
         .then((list) => {
           if (Array.isArray(list) && list.length && typeof Quiz.loadRepoImageQuestions === "function") {
@@ -1809,13 +1809,12 @@
 
   function homeHorarioHTML() {
     const now = new Date();
-    const todayDia = now.getDay(); // 0=dom, 1=lun ... 6=sab
+    const todayDia = now.getDay();
     const DIAS_FULL = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
     const todayName = DIAS_FULL[todayDia];
 
     const todayClasses = HORARIOS.filter(h => h.dia === todayDia);
 
-    // Próximos examenes (hasta 3)
     const today0 = new Date(); today0.setHours(0, 0, 0, 0);
     const upcomingExams = AGENDA
       .map(x => ({ x, d: evalDateOf(x.fecha) }))
@@ -1826,41 +1825,45 @@
     const todayItems = todayClasses.length
       ? todayClasses.map(c => {
           const mc = getMateriaColor(c.mat);
-          return `<div class="sched-card" style="border-left:3px solid ${mc.color}; margin-bottom:6px; padding:8px 10px;">
-            <p class="sched-h mono-label" style="margin:0 0 2px;">${c.ini} – ${c.fin}</p>
-            <p style="margin:0; font-size:13px; font-weight:700;">${esc(c.mat)}</p>
-            <p class="muted" style="margin:0; font-size:11px;">Com. ${esc(c.com)}</p>
+          return `<div class="home-sched-row" style="--mc:${mc.color}">
+            <span class="home-sched-bar"></span>
+            <div class="home-sched-body">
+              <div class="home-sched-time">${c.ini} – ${c.fin}</div>
+              <div class="home-sched-mat">${esc(c.mat)}</div>
+              <div class="home-sched-com">Com. ${esc(c.com)}</div>
+            </div>
           </div>`;
         }).join("")
-      : `<div class="empty-note" style="font-size:13px; padding:10px 0;">No tenés clases hoy 🎉</div>`;
+      : `<div class="empty-note">No tenés clases hoy 🎉</div>`;
 
     const examRows = upcomingExams.length
       ? upcomingExams.map(({ x, d }) => {
           const days = Math.round((d - today0) / 86400000);
-          const daysTxt = days === 0 ? "Hoy" : days === 1 ? "Mañana" : `En ${days} días`;
+          const daysTxt = days === 0 ? "Hoy" : days === 1 ? "Mañana" : `En ${days}d`;
           const mc = getMateriaColor(x.mat);
-          return `<div style="display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--border);">
-            <span style="width:8px; height:8px; border-radius:50%; background:${mc.color}; flex-shrink:0;"></span>
-            <div style="flex:1; min-width:0;">
-              <div style="font-size:12px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(x.mat)}</div>
-              <div class="muted" style="font-size:11px;">${esc(x.tipo)}${x.desc ? " · " + esc(x.desc) : ""}</div>
+          return `<div class="home-exam-row">
+            <span class="home-exam-dot" style="background:${mc.color}"></span>
+            <div class="home-exam-info">
+              <div class="home-exam-mat">${esc(x.mat)}</div>
+              <div class="home-exam-sub">${esc(x.tipo)}${x.desc ? " · " + esc(x.desc) : ""}</div>
             </div>
-            <span class="chip" style="font-size:10px; flex-shrink:0;">${daysTxt}</span>
+            <span class="chip home-exam-pill">${daysTxt}</span>
           </div>`;
         }).join("")
-      : `<div class="empty-note" style="font-size:12px;">Sin evaluaciones próximas</div>`;
+      : `<div class="empty-note">Sin evaluaciones próximas</div>`;
 
     return `
-    <section class="panel-sec" style="padding:0;">
-      <div class="sec-head-row" style="margin-bottom:8px;">
+    <section class="panel-sec home-horario-widget">
+      <div class="sec-head-row">
         <div class="sec-title"><span class="material-symbols-outlined">schedule</span><h2>Hoy · ${todayName}</h2></div>
-        <button class="link-btn" id="btn-ver-horario" type="button">Ver completo →</button>
+        <button class="link-btn" id="btn-ver-horario" type="button">Ver todo →</button>
       </div>
-      ${todayItems}
-      <div class="sec-head-row" style="margin-top:14px; margin-bottom:6px;">
-        <div class="sec-title"><span class="material-symbols-outlined" style="font-size:16px;">event</span><h3 style="font-size:14px;">Próximos exámenes</h3></div>
+      <div class="home-sched-list">${todayItems}</div>
+      <div class="home-horario-divider">
+        <span class="material-symbols-outlined" style="font-size:15px;">event</span>
+        <span>Próximos exámenes</span>
       </div>
-      ${examRows}
+      <div class="home-exams-list">${examRows}</div>
     </section>`;
   }
 
